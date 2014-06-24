@@ -204,17 +204,17 @@
       integer(kind = kint), intent(in) :: ncomp, nvector, nscalar
 !
 !
-      if(id_legendre_transfer .eq. iflag_leg_krloop_outer) then
-        call leg_fwd_trans_scalar_spin(ncomp, nvector, nscalar)
-      else if(id_legendre_transfer .eq. iflag_leg_krloop_inner) then
-        call leg_fwd_trans_scalar_krin(ncomp, nvector, nscalar)
-      else if(id_legendre_transfer .eq. iflag_leg_long_loop) then
-        call leg_fwd_trans_scalar_long(ncomp, nvector, nscalar)
-      else if(id_legendre_transfer .eq. iflag_lef_fdout_loop) then
+!      if(id_legendre_transfer .eq. iflag_leg_krloop_outer) then
+!        call leg_fwd_trans_scalar_spin(ncomp, nvector, nscalar)
+!      else if(id_legendre_transfer .eq. iflag_leg_krloop_inner) then
+!        call leg_fwd_trans_scalar_krin(ncomp, nvector, nscalar)
+!      else if(id_legendre_transfer .eq. iflag_leg_long_loop) then
+!        call leg_fwd_trans_scalar_long(ncomp, nvector, nscalar)
+!      else if(id_legendre_transfer .eq. iflag_lef_fdout_loop) then
         call leg_fwd_trans_scalar_fdout(ncomp, nvector, nscalar)
-      else
-        call leg_fwd_trans_scalar_org(ncomp, nvector, nscalar)
-      end if
+!      else
+!        call leg_fwd_trans_scalar_org(ncomp, nvector, nscalar)
+!      end if
 !
       end subroutine sel_scalar_fwd_legendre_trans
 !
