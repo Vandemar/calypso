@@ -1,13 +1,13 @@
 ! Author: Harsha Lokavarapu
 
         module matrix_vector_multiply
+
+        implicit none
 !
 !>  kind parameter for integer type variable (  4 byte)
       integer, parameter   ::  kint  =       4
 !>  kind parameter for real    type variable (  8 byte )
       integer, parameter   ::  kreal =       8
-
-        implicit none
 
 !
 !----------------------------------------------------------------
