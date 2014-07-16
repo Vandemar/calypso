@@ -107,29 +107,44 @@
       integer(kind = kint) :: l_rtm
       integer(kind = kint) :: ip_rtm
       integer(kind = kint) :: nd
-      real(kind = kreal) :: pwt_tmp
+      real(kind = kreal) :: pws_check(nidx_rtm(2)), sp1, Pws_l(nidx_rtm(2))
+      real(kind=kreal), allocatable, dimension(:,:) :: Pws
+
+      allocate(Pws(nidx_rtm(2), nidx_rlm(2)))
+
+      call spectral_to_grid(nidx_rlm(2), nidx_rtm(2), P_rtm(1,1),       &
+     &             g_sph_rlm(1,6), weight_rtm(1), Pws(1,1))
 !
 !
-!$omp parallel do private(j_rlm,k_rlm,nd,i_rlm,ip_rtm,l_rtm,pwt_tmp)
-      do j_rlm = 1, nidx_rlm(2)
-!
-        do k_rlm = 1, nidx_rlm(1)
+!$omp parallel do private(j_rlm,k_rlm,nd,i_rlm,ip_rtm,l_rtm,sp1,Pws_l)
+      do k_rlm = 1, nidx_rlm(1)
+        do j_rlm = 1, nidx_rlm(2)
+          do l_rtm = 1, nidx_rtm(2)
+            pws_check(l_rtm) = Pws(l_rtm, j_rlm)         
+            Pws_l(l_rtm) = P_rtm(l_rtm,j_rlm)                           &
+     &                    * g_sph_rlm(j_rlm,6)*weight_rtm(l_rtm)
+            if( Pws_l(l_rtm) .NE. pws_check(l_rtm) ) then
+              write(*, 900) 'Pws_l=', Pws_l(l_rtm), 'Pws_check=',       &
+     &                       pws_check
+              900 format (A, F5.3, A, F5.3)
+            end if
+          end do 
+
           do nd = 1, nscalar
             i_rlm = nd + 3*nvector + (j_rlm-1) * ncomp                  &
      &                             + (k_rlm-1) * ncomp*nidx_rlm(2)
 !
-            do l_rtm = 1, nidx_rtm(2)
-              pwt_tmp = P_rtm(l_rtm,j_rlm) * weight_rtm(l_rtm)
+           sp1 = 0.0d0
+           do l_rtm = 1, nidx_rtm(2)
               ip_rtm = nd + 3*nvector + (l_rtm-1)  * ncomp              &
      &                + (k_rlm-1)  * ncomp * nidx_rtm(2)                &
      &                + (mdx_p_rlm_rtm(j_rlm)-1)                        &
      &                  * ncomp * nidx_rtm(1) * nidx_rtm(2)
 !
-!              sp_rlm(i_rlm) = sp_rlm(i_rlm)                            &
-              sp_rlm(i_rlm) = sp_rlm(i_rlm) + vr_rtm(ip_rtm) * pwt_tmp
+              sp1 = sp1 + vr_rtm(ip_rtm) * Pws_l(l_rtm)
             end do
 !
-            sp_rlm(i_rlm) = sp_rlm(i_rlm) * g_sph_rlm(j_rlm,6)
+            sp_rlm(i_rlm) = sp1
           end do
         end do
       end do
