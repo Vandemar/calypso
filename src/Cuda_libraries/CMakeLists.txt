@@ -1,20 +1,47 @@
-# Define source files in MHD_src and its subdirectories
-# LA ---> Linear Algebra
 FILE(GLOB CUDA_SRC_FILES *.cu)
 
-set(cudaLib_objDir ${CMAKE_BINARY_DIR}/include/cudaLib.o)
+set(GENCODE "-gencode=arch=compute_35,code=sm_35")
 
-#set(CUDA_NVCC_FLAGS "-c -L${CUDA_LIBRARIES} -I${CUDA_INCLUDE_DIRS} -lcuda
-#-lcublas -lcudart")
-#CUDA_ADD_LIBRARY(cudaLib ${CUDA_SRC_FILES})
+# The option dc enables dynamic parallelism in cuda
 
-add_custom_target(cudaLib command ${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc -c ${CUDA_SRC_FILES}
-	-L${CUDA_LIBRARIES}
-	-I${CUDA_INCLUDE_DIRS}
-        -o ${cudaLib_objDir})
+# debug options
+set(CUDA_NVCC_FLAGS_DEBUG "-G;-g")
+set(CUDA_NVCC_FLAGS_RELEASE "-O2")
 
-SET (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${cudaLib_objDir}") 
+#The following command links the compiled code. 
+#This is necessary when using dynamic parallelism for one. 
+#Dynamic Parallelism essentially allows you to nest kernel calls. 
+#Thus, there are now terms such as parent grid, child grid, etc...
+set(CUDA_SEPARABLE_COMPILATION ON)
+set(CUDA_VERBOSE_BUILD ON)
 
-#TARGET_LINK_LIBRARIES(cudaLib ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${CUDA_CUDART_LIBRARY})
-#SET(CMAKE_Fortran_FLAGS ${CMAKE_Fortran_FLAGS} cudaLib)
+cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE} ${CUDA_LIBRARY_FLAGS})
+set_target_properties(cudaLib PROPERTIES LINK_FLAGS ${CUDA_LIBRARY_FLAGS})
+
+#if(CUDA_DEBUG)
+#  add_custom_target(cudaLib 
+#                        command
+#                            ${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc -m${OS_type}
+#                            -gencode ${genCodes} -dc -g -G -c ${CUDA_SRC_FILES}
+#                            -o ${cudaLibPath} -D DEBUG)
+#else()
+#  add_custom_target(cudaLib 
+#                        command 
+#                            ${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc -m${OS_type}
+#                            -gencode ${genCodes} -dc -c ${CUDA_SRC_FILES}
+#                            -o ${cudaLibPath})
+#endif()
+
+#Assuming 64 bit architecture
+#add_custom_target(cudaLibLink ALL 
+#                          COMMAND
+#                              ${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc
+#                              -m${OS_type} -gencode ${genCodes} 
+#                              -dlink ${cudaLibPath}
+#                              -o ${cudaLibLinkPath} 
+#                              -I ${CUDA_TOOLKIT_INCLUDE} 
+#                              -L ${CUDA_TOOLKIT_ROOT_DIR}/lib64 -lcudart
+#                              -lcublas -lcuda -lcublas_device -lcudadevrt)
+                         
+#add_dependencies(cudaLibLink cudaLib)
 

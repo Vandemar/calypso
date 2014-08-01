@@ -1,0 +1,64 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <cuda.h>
+#include <cublas_v2.h>
+#include <cuda_runtime.h>
+#include <cuda_profiler_api.h>
+#include "helper_cublas.h"
+#include "helper_cuda.h"
+
+//Function Defines;
+void checkCublasStatus(cublasStatus_t stat);
+void checkCudaStatus(cudaError_t stat);
+//GPU Functions 
+
+ 
+extern "C" void spectral_to_grid_(int* nscalar, int* nvector, int* ncomp, int* nidx_rlm, int* nidx_rtm, double* P_rtm, double* g_sph_rlm, double* weight_rtm, double* Pws, double* vr_rtm, int* mdx_p_rlm_rtm, double* sp_rlm) {
+  
+  int i;
+  //device matrices 
+  double *P_rtm_d;
+  
+  //Critical Section
+  //cudaProfilerStart();
+
+  //allocating space for device matrices
+  cublasHandle_t handle;
+
+  cudaMalloc((void**)&P_rtm_d, sizeof(*P_rtm)*(*nidx_rtm)*(*nidx_rlm));
+ 
+  cublasSetMatrix(*nidx_rtm, *nidx_rlm, sizeof(*P_rtm), P_rtm, *nidx_rtm, P_rtm_d, *nidx_rtm);
+  
+  cublasCreate(&handle);
+  double *tmp;
+  for( i=1; i<(*nidx_rlm)+1; i++) {
+    tmp = g_sph_rlm+(i-1);
+    cublasDscal(handle, *nidx_rtm, tmp, P_rtm_d + (*nidx_rtm)*(i-1), 1); 
+  } 
+
+  for( i=1; i<(*nidx_rtm)+1; i++) {
+    tmp = weight_rtm+(i-1);
+    cublasDscal(handle, *nidx_rlm, tmp, P_rtm_d + (i-1), *nidx_rtm);    
+  }
+
+  //moving device data into a host matrix
+  cublasGetMatrix(*nidx_rtm, *nidx_rlm, sizeof(*Pws), P_rtm_d, *nidx_rtm, Pws, *nidx_rtm);   
+  
+  cublasDestroy(handle);
+  cudaDeviceReset();
+  cudaFree(P_rtm_d);
+  //cudaProfilerStop();
+  return; 
+} 
+
+void checkCublasStatus(cublasStatus_t stat) {
+  if(strcmp(_cublasGetErrorEnum(stat), "cublasSuccess") != 0)
+    printf("%s\n", _cublasGetErrorEnum(stat));
+  return;
+}
+void checkCudaStatus(cudaError_t stat) {
+  if(strcmp(_cudaGetErrorEnum(stat), "cudaSuccess") != 0)
+    printf ("%s\n", _cudaGetErrorEnum(stat));
+  return;
+}
+

@@ -1,0 +1,171 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <array>
+#include <cuda.h>
+#include <cublas_v2.h>
+#include <cuda_runtime.h>
+#include <cuda_profiler_api.h>
+#include "helper_cublas.h"
+#include "helper_cuda.h"
+
+//Using Cuda Registers
+__constant__ int indx_rtm;
+__constant__ int indx_rlm;
+
+//Function Defines;
+void cublasStatusCheck(cublasStatus_t stat);
+void cudaErrorCheck(cudaError_t stat);
+//GPU Functions 
+
+__global__ void scaleBy_GaussSphMatrix(cublasStatus_t *ptrStat, double* Pws_l_d, double* g_sph_rlm_d) {
+  extern __shared__ double sharedMem[];
+  int me = blockIdx.x;
+  int index = indx_rtm*x;
+  for(int i = 0; i < indx_rtm; i++) {
+    sharedMem[i] = Pws_l_d[index+i];
+  }
+  sharedMem[indx_rtm] = g_sph_rlm_d[me];
+  
+  cublasStatus_t stat;
+  cublasHandle_t coHandle;
+  stat = cublasCreate(&coHandle);
+ 
+  if (stat != CUBLAS_STATUS_SUCCESS) {
+    ptrStat = &stat;
+    return;
+  }
+  
+  stat = cublasDscal(cohandle, indx_rtm, sharedMem + indx_rtm, sharedMem, 1);
+
+  if (stat != CUBLAS_STATUS_SUCCESS) {
+    ptrStat = &stat;
+    return;
+  }
+ 
+  for(int i = 0; i < indx_rtm; i++) {
+    Pws_l_d[index+i] = sharedMem[i];
+  }
+  
+  cublasDestroy(coHandle);
+  ptrStat = &stat;
+  return;
+}
+  
+__global__ void scaleBy_Weights(cublasStatus_t *ptrStat, double* Pws_l_d, double* weight_rtm_d) {
+  extern __shared__ double sharedMem[];
+  int me = blockIdx.x;
+  for(int i = 0; i < indx_rlm; i++) {
+    sharedMem[i] = Pws_l_d[me+i*indx_rtm];
+  }
+  sharedMem[indx_rlm] = weight_rtm_d[me];
+  
+  cublasStatus_t stat;
+  cublasHandle_t coHandle;
+  stat = cublasCreate(&coHandle);
+ 
+  if (stat != CUBLAS_STATUS_SUCCESS) {
+    ptrStat = &stat;
+    return;
+  }
+  
+  stat = cublasDscal(cohandle, indx_rlm, sharedMem + indx_rlm, sharedMem, 1);
+
+  if (stat != CUBLAS_STATUS_SUCCESS) {
+    ptrStat = &stat;
+    return;
+  }
+ 
+  for(int i = 0; i < indx_rlm; i++) {
+    Pws_l_d[me+i*indx_rtm] = sharedMem[i];
+  }
+  
+  cublasDestroy(coHandle);
+  ptrStat = &stat;
+  return;
+}
+ 
+extern "C" void spectral_to_grid_(int* nscalar, int* nvector, int* ncomp, int* nidx_rlm, int* nidx_rtm, double* P_rtm, double* g_sph_rlm, double* weight_rtm, double* Pws, double* vr_rtm, int* mdx_p_rlm_rtm, double* sp_rlm) {
+  
+  int i;
+  //device matrices 
+  double *P_rtm_d;
+  double *g_sph_rlm_d;
+  double *weight_rtm_d; 
+
+  cudaProfilerStart();
+
+  cublasStatus_t stat;
+  cudaError_t error;
+  cublasHandle_t handle; 
+  // Initializing the cuda constant variables
+  error = cudaMemcpyToSymbol(indx_rtm, nidx_rtm, sizeof(int), cudaMemcpyHostToDevice);
+  cudaErrorCheck(error);
+  error = cudaMemcpyToSymbol(indx_rlm, nidx_rlm, sizeof(int), cudaMemcpyHostToDevice);
+  cudaErrorCheck(error);
+
+  //Call to check for working cublas routines
+  stat = cublasCreate(&handle);
+  cublasStatusCheck(stat);
+ 
+  //allocating space for device matrices
+  stat = cudaMalloc((void**)&P_rtm_d, sizeof(*P_rtm)*(*nidx_rtm)*(*nidx_rlm));
+  cudaErrorCheck(stat);
+  stat = cublasSetMatrixAsync(*nidx_rtm, *nidx_rlm, sizeof(*P_rtm), P_rtm, *nidx_rtm, P_rtm_d, *nidx_rtm, 0);
+  cublasStatusCheck(stat);
+
+  stat = cudaMalloc((void**)&g_sph_rlm_d, sizeof(*g_sph_rlm)*(*nidx_rlm));
+  cudaErrorCheck(stat);
+  stat = cublasSetVectorAsync(*nidx_rtm, sizeof(double), weight_rtm, 1, weight_rtm_d, 1, 0);
+  cublasStatusCheck(stat);
+   
+  dim3 grid = (*nidx_rlm, 1, 1);
+  dim3 block = (1,1,1);
+  int vsize = (1 + *nidx_rtm) * sizeof(double);
+
+  //call to kernel
+  scaleBy_GaussSphMatrix<<<grid, block, vsize>>> (&stat, P_rtm_d, g_sph_rlm_d);
+  cublasStatusCheck(stat);
+  
+  stat = cudaMalloc((void**)&weight_rtm_d, sizeof(*weight_rtm)*(*nidx_rtm));
+  cudaErrorCheck(stat);
+  stat = cublasSetVectorAsync(*nidx_rtm, sizeof(double), weight_rtm, 1, weight_rtm_d, 1, 0);
+  cublasStatusCheck(stat);
+
+  grid = (*nidx_rtm, 1, 1);
+  vsize = (1 + *nidx_rlm) * sizeof(double);
+ 
+  scaleBy_Weights<<<grid, block, vsize>>> (&stat, P_rtm_d, weight_rtm_d); 
+  stat = cublasStatusCheck(stat);
+
+  //moving device data into a host matrix
+  stat = cublasGetMatrixAsync(*nidx_rtm, *nidx_rlm, sizeof(*Pws), P_rtm_d, *nidx_rtm, Pws, *nidx_rtm, 0);   
+  stat = cublasStatusCheck(stat);
+  
+  cublasDestroy(handle);
+  cudaDeviceReset();
+  cudaFree(P_rtm_d);
+  cudaFree(g_sph_rlm_d);
+  cudaFree(weight_rtm_d);
+  cudaProfilerStop();
+  return; 
+} 
+
+void cublasStatusCheck(cublasStatus_t stat) {
+  if(_cublasGetErrorEnum(stat) != cublasSuccess)
+    printf("%s\n", _cublasGetErrorEnum(stat));
+  else {
+    printf("%s\n", _cublasGetErrorEnum(stat));
+    exit(1); 
+  }
+  return;
+}
+void cudaErrorCheck(cudaError_t stat) {
+  if(_cudaGetErrorEnum(stat) != cudaSuccess)
+    printf ("%s\n", _cudaGetErrorEnum(stat));
+  else {
+    printf ("%s\n", _cudaGetErrorEnum(stat));
+    exit(1);
+  }
+  return;
+}
+
