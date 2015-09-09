@@ -102,14 +102,14 @@
       elapse_labels(54) = 'Communication time        '
 !
 #if defined(CUDA)
-      elapse_labels(55) = 'Mem alloc on dev 4 SPH init'  
-      elapse_labels(56) = 'Mem cpy from H2D 4 SPH init'  
+      elapse_labels(55) = 'Mem alloc of grid & harmonic space GPU'  
+      elapse_labels(56) = 'Mem alloc+ MemCpy to GPU for leg_trans'  
       elapse_labels(57) = 'cpy sp_rlm host2dev for bwd. trans.'
       elapse_labels(58) = 'cpy vr_rtm dev2host for bwd. trans.'
       elapse_labels(59) = 'LGP bwd transform'
       elapse_labels(60) = 'LGP fwd transform'
       elapse_labels(61) = 'Mem free on Dev & host 4 leg. transi.'
-      elapse_labels(62) = 'Mem alloc on cpu 4 SPH init'
+      elapse_labels(62) = 'Mem alloc of grid & harmonic space CPU'
       elapse_labels(63) = 'initalization of GPU'
 #endif
       end subroutine set_sph_MHD_elapsed_label

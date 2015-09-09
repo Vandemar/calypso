@@ -110,10 +110,11 @@ void initialize_gpu_();
 //void initgpu_(int *nnod_rtp, int *nnod_rtm, int *nnod_rlm, int nidx_rtm[], int nidx_rtp[], int istep_rtm[], int istep_rlm[], int *ncomp, double *a_r_1d_rlm_r, int lstack_rlm[], double *g_colat_rtm, int *trunc_lvl, double *g_sph_rlm);
 void set_constants_(int *nnod_rtp, int *nnod_rtm, int *nnod_rlm, int nidx_rtm[], int nidx_rtp[], int istep_rtm[], int istep_rlm[], int *t_lvl, int *np_smp);
 void setptrs_(int *idx_gl_1d_rlm_j);
+void initialize_leg_trans_gpu_();
 void finalizegpu_(); 
 void initDevConstVariables();
 
-void alloc_space_on_gpu_(int *ncomp, int *nvec, int *nsca);
+void alloc_space_on_gpu_(int *ncomp, int *nvector, int *nscalar);
 void memcpy_h2d_(int *lstack_rlm, double *a_r, double *g_colat, double *g_sph_rlm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, int *idx_gl_1d_rlm_j, double *rad_1d_rlm_r, double *weights, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm);
 void deAllocMemOnGPU();
 void deAllocDebugMem();

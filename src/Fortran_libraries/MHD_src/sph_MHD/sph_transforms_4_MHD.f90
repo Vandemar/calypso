@@ -78,6 +78,12 @@
 !
       if (iflag_debug.eq.1) write(*,*) 'initialize_legendre_trans'
       call initialize_legendre_trans
+#ifdef CUDA
+      call start_eleps_time(56)
+      call initialize_leg_trans_gpu
+      call set_mem_4_gpu
+      call end_eleps_time(56)
+#endif
       call init_fourier_transform_4_MHD(ncomp_sph_trans,                &
      &    ncomp_rtp_2_rj, ncomp_rj_2_rtp)
 !
@@ -85,6 +91,7 @@
       call set_colatitude_rtp
       if (iflag_debug.eq.1) write(*,*) 'init_sum_coriolis_rlm'
       call init_sum_coriolis_rlm
+!
 !
       if(id_legendre_transfer .eq. iflag_leg_undefined) then
         if (iflag_debug.eq.1) write(*,*) 'select_legendre_transform'
@@ -94,14 +101,6 @@
       call sel_init_legendre_trans                                      &
      &    (ncomp_sph_trans, nvector_sph_trans, nscalar_sph_trans)
 !
-#ifdef CUDA
-      call start_eleps_time(56)
-      call set_mem_4_gpu
-#ifdef CUDA_TIMINGS
-      call sync_device
-#endif
-      call end_eleps_time(56)
-#endif      
 !
       if(my_rank .ne. 0) return
         if     (id_legendre_transfer .eq. iflag_leg_orginal_loop) then
@@ -372,6 +371,10 @@
      &            etime_trans(iflag_leg_sym_dgemm)
         write(*,*) '12: elapsed by matrix prod. with symm.: ',          &
      &            etime_trans(iflag_leg_sym_matprod)
+#ifdef CUDA
+        write(*,*) '13: elapsed by CUDA On-the-fly comp.  : ',          &
+     &            etime_trans(iflag_leg_cuda)
+#endif
 !
       end subroutine select_legendre_transform
 !

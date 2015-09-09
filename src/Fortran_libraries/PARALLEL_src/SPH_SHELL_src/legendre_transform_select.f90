@@ -49,7 +49,11 @@
       implicit none
 !
 !
+#ifdef CUDA
+      integer(kind = kint), parameter :: ntype_Leg_trans_loop = 13
+#else
       integer(kind = kint), parameter :: ntype_Leg_trans_loop = 12
+#endif
 !
 !>      Character flag to perform Legendre transform 
 !@n     using original array order
@@ -248,14 +252,13 @@
         call alloc_leg_vec_test(nvector, nscalar)
 #ifdef CUDA
       else if(id_legendre_transfer .eq. iflag_leg_cuda) then
+!Sets ncomp, nvector, and nscalar on GPU
         call start_eleps_time(62)
         call allocate_work_sph_trans(ncomp)
         call end_eleps_time(62)
+!
         call start_eleps_time(55)
         call alloc_space_on_gpu(ncomp, nvector, nscalar)
-!#ifdef CUDA_TIMINGS
-!        call cuda_sync_device
-!#endif
         call end_eleps_time(55)
 #endif
       else

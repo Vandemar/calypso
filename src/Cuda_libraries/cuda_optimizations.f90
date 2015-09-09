@@ -28,7 +28,7 @@
           call initialize_gpu
           call end_eleps_time(62)
         end subroutine calypso_gpu_init
-        
+       
         subroutine set_mem_4_gpu
           call setPtrs(idx_gl_1d_rlm_j(1,1))  
           call cpy_schmidt_2_gpu(P_jl(1,1), dPdt_jl(1,1), P_rtm(1,1),   &
