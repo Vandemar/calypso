@@ -61,7 +61,7 @@ double calculateLGP_m_l(int mode, int degree, double theta, double lgp_0, double
 
 __device__ __inline__  
 double calculateLGP_m_l_mod(int mode, int degree, double cos_theta, double lgp_0, double lgp_1) {
-  return  __ddiv_rd(__dadd_rd(__dmul_rd(2*degree-1, __dmul_rd(cos_theta, lgp_1)), __dmul_rd(-1 * lgp_0, __dsqrt_rd((degree-1)*(degree-1) - mode*mode))), __dsqrt_rd((degree*degree) - (mode*mode)));
+  return  __ddiv_rd(__dadd_rd(__dmul_rd((double)2*degree-1, __dmul_rd(cos_theta, lgp_1)), -1 * __dmul_rd(lgp_0, __dsqrt_rd((double)(degree-1)*(degree-1) - mode*mode))), __dsqrt_rd((double) degree*degree - mode*mode));
 }
 
 __device__ __inline__  
@@ -127,7 +127,7 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
   double theta = g_colat_rtm[blockIdx.x]; 
   
   double lgp=1;
-  double sin_theta_m=1, sin_theta_mp1=1, sin_theta_mn1=1; 
+  double sin_theta_l=1; 
 //calculateLGP_mp1_eq_l(order-1, x, p_mn_l_0);
  // return __dmul_rd(__dmul_rd(lgp_m_eq_l, __dsqrt_rd(2*mode+1)),x); 
   // m-1,l-1
@@ -140,21 +140,21 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
   double cos_theta = cos(theta);
   double sin_theta = sin(theta);
   // m-1,l
-  double p_mn_l_1 = __dsqrt_rd(x);
+  double p_mn_l_1 = __dsqrt_rd(x*p_mn_l_0);
   p_mn_l_0 = __dsqrt_rd(p_mn_l_0); 
   x += 2; 
-  for(int k=0; k<order; k++)
-    sin_theta_mn1 *= sin_theta;
+  for(int k=0; k<degree; k++)
+    sin_theta_l *= sin_theta;
   order++;
-  p_mn_l_1 *= cos_theta*p_mn_l_0;
+  p_mn_l_1 *= cos_theta;
 
   // m,l
+  degree++;
   lgp *= __ddiv_ru((double)2*order-1, (double)2*order);
   double p_m_l_1 = __dsqrt_rd(x); 
-  sin_theta_m = sin_theta * sin_theta_mn1; 
-  double dp_m_l = __dmul_rd(sin_theta_mn1, p_mn_l_1);
-  double p_m_l_0 = __dsqrt_rd(__dmul_rd(2, lgp)); 
   x += 2;
+  double p_m_l_0 = __dsqrt_rd(__dmul_rd(2, lgp)); 
+  double dp_m_l = __dmul_rd(sin_theta_l, p_mn_l_1);
   dp_m_l *= __dsqrt_rd(2*order);
   order++;
   // m,l+1
@@ -167,7 +167,6 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
   // m+1,l+1 
   lgp *= __ddiv_ru((double)2*order-1, (double)2*order);
   double p_mp_l_1 = __dsqrt_rd(x); 
-  sin_theta_mp1 = sin_theta * sin_theta_m; 
   double p_mp_l_0 = __dsqrt_rd(__dmul_rd(2, lgp)); 
   order--;
   dp_m_l *= 0.5;
@@ -178,25 +177,24 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
   double reg1, reg2, reg3; 
   int idx, idx_rtm_mp, idx_rtm_mn;
   // x and y are unused integer variables
-  // sin_theta, lgp unused double variable
   x = threadIdx.x * devConstants.istep_rlm[0] * devConstants.ncomp;
   y = (threadIdx.y+1)*3;
   double a_r_1d_sq = a_r_1d * a_r_1d;
-  double asin_theta = asin_theta_1d_rtm[blockIdx.x];
+  double asin_theta = __dmul_rd(asin_theta_1d_rtm[blockIdx.x], (double) order);
   double vr1=0, vr2=0, vr3=0, vr4=0, vr5=0;
+  double dPdt;
   for(int j_rlm=jst; j_rlm<=jed; j_rlm++, degree++) {
     idx = devConstants.ncomp * (j_rlm-1) * devConstants.istep_rlm[1] + x + y; 
-    reg3 = __dmul_rd(sin_theta_m, p_m_l_0);
-    reg1 = -1 * order * asin_theta;         
-    reg2 = __dmul_rd(reg1,reg3);
-    lgp = __dmul_rd(a_r_1d, dp_m_l);
-    sin_theta = __dmul_rd(a_r_1d, reg2);
+    reg3 = __dmul_rd(sin_theta_l, p_m_l_0);
+    reg2 = -1 * __dmul_rd(asin_theta,reg3);
+    dPdt = __dmul_rd(a_r_1d, dp_m_l);
+    reg1 = __dmul_rd(a_r_1d, reg2);
      
-    vr5 += sp_rlm[idx - 1] * sin_theta;
-    vr4 += sp_rlm[idx - 2] * sin_theta;
+    vr5 += sp_rlm[idx - 1] * reg1;
+    vr4 += sp_rlm[idx - 2] * reg1; 
     vr3 += sp_rlm[idx - 3] * a_r_1d_sq * reg3 * g_sph_rlm[j_rlm-1];    
-    vr2 += sp_rlm[idx - 2]  * lgp;    
-    vr1 -= sp_rlm[idx - 1] * lgp;    
+    vr2 += sp_rlm[idx - 2]  * dPdt;
+    vr1 -= sp_rlm[idx - 1] * dPdt;    
       
     // m-1, l+1 
     reg1 = calculateLGP_m_l_mod(order-1, degree+1, cos_theta, p_mn_l_0, p_mn_l_1); 
@@ -214,9 +212,9 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
   debug_P_smdt[idx_debug] = p_m_l_0; 
 #endif
     //m, l+1
-    
-    reg1 = sin_theta_mn1 * p_mn_l_1;
-    reg2 = sin_theta_mp1 * p_mp_l_0; 
+    sin_theta_l *= sin_theta; 
+    reg1 = sin_theta_l * p_mn_l_1;
+    reg2 = sin_theta_l * p_mp_l_0; 
     dp_m_l = nextDp_m_l(order, degree+1, reg1, reg2);
      
     //m+1, l+3
@@ -1048,7 +1046,7 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   dim3 block5(constants.nidx_rtm[2],1,1);
   dim3 grid3(nTheta, constants.nidx_rtm[2]);
   dim3 block3(nShells,1,1);
-  transB_dydt<<<grid3, block3, 0, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
+//  transB_dydt<<<grid3, block3, 0, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
 //Fastest
 //  transB_dydt_smem_a_r<<<grid3, block3, sizeof(double)*nShells, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
  // transB_dydt_smem_dpschmidt<<<grid3, block3, sizeof(double)*constants.nidx_rlm[1], streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
@@ -1057,7 +1055,7 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
 //  transB_dydt_smem_schmidt_more_threads<<<grid3, block8, sizeof(double)*2*constants.nidx_rlm[1], streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
  // transB_dydt_read_only_data<<<grid5, block5, 0, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl);
 //Fastest
- transB_dydp<<<grid3, block3, sizeof(double)*nShells, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);
+// transB_dydp<<<grid3, block3, sizeof(double)*nShells, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);
 //  transB_dydp_smem_schmidt_more_threads<<<grid3, block8, sizeof(double)*constants.nidx_rlm[1], streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);
 // transB_scalar<<<grid3, block3, 0, streams[1]>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl);
 
@@ -1082,9 +1080,9 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   dim3 block(nShells,constants.nvector,1);
 //  transB_m_l_ver3D_block_of_vectors_smem<<<grid, block, nShells*sizeof(double), streams[l%2]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, d_debug.P_smdt, d_debug.dP_smdt, deviceInput.g_sph_rlm, deviceInput.asin_theta_1d_rtm);
 #ifndef CUDA_DEBUG
-//  transB_m_l_neo<<<grid, block, 0, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.g_colat_rtm, deviceInput.g_sph_rlm, deviceInput.asin_theta_1d_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.sp_rlm, deviceInput.vr_rtm);
+  transB_m_l_neo<<<grid, block, 0, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.g_colat_rtm, deviceInput.g_sph_rlm, deviceInput.asin_theta_1d_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.sp_rlm, deviceInput.vr_rtm);
 #else
-//  transB_m_l_neo<<<grid, block, 0, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.g_colat_rtm, deviceInput.g_sph_rlm, deviceInput.asin_theta_1d_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.sp_rlm, deviceInput.vr_rtm, d_debug.P_smdt, d_debug.dP_smdt);
+  transB_m_l_neo<<<grid, block, 0, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.g_colat_rtm, deviceInput.g_sph_rlm, deviceInput.asin_theta_1d_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.sp_rlm, deviceInput.vr_rtm, d_debug.P_smdt, d_debug.dP_smdt);
 #endif
   
   /*for(int mp_rlm=1; mp_rlm<=constants.nidx_rtm[2]; mp_rlm++) {
