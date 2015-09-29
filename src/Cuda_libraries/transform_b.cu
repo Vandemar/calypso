@@ -208,7 +208,7 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
     p_m_l_1 = reg2;
  
 #ifdef CUDA_DEBUG
-  idx_debug = blockIdx.x*devConstants.nidx_rlm[1] + degree*(degree+1) + order;
+  idx_debug = blockIdx.x*devConstants.nidx_rlm[1] + (degree+1)*(degree+2) + order;
   debug_P_smdt[idx_debug] = p_m_l_0; 
 #endif
     //m, l+1
@@ -587,7 +587,7 @@ void transB_scalar(int *lstack_rlm, double *vr_rtm, double const* __restrict__ s
 }
 
 __global__
-void transB_scalar_smem(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl) {
+void transB_scalar_smem(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl, const Geometry_c constants) {
   //dim3 grid3(nTheta, devConstants.nidx_rtm[2]);
   //dim3 block3(nShells,1,1);
  // mp_rlm is the blockIdx.y 
@@ -597,8 +597,8 @@ void transB_scalar_smem(int *lstack_rlm, double *vr_rtm, double const* __restric
   int jst = __ldg(&lstack_rlm[blockIdx.y]) + 1;
   int jed = __ldg(&lstack_rlm[blockIdx.y+1]);
   int idx_p_jl=0, idx=0, idx_rtm=0; 
-  int reg1 = 3*devConstants.nvector + devConstants.ncomp*threadIdx.x*devConstants.istep_rlm[0];
-  idx_p_jl = devConstants.nidx_rlm[1]*blockIdx.x+jst-1 + threadIdx.x;
+  int reg1 = 3*constants.nvector + constants.ncomp*threadIdx.x*constants.istep_rlm[0];
+  idx_p_jl = constants.nidx_rlm[1]*blockIdx.x+jst-1 + threadIdx.x;
   int me = threadIdx.x;
   while(me < jed-jst+1) {
     schmidt[me] = P_jl[idx_p_jl];
@@ -608,14 +608,14 @@ void transB_scalar_smem(int *lstack_rlm, double *vr_rtm, double const* __restric
   __syncthreads();
 
   int count=0; 
-  for(int t=1; t<=devConstants.nscalar; t++) {
+  for(int t=1; t<=constants.nscalar; t++) {
     vrs1 = 0;
     for(int j_rlm=jst-1,count=0; j_rlm<jed; j_rlm++,count++) {
-      idx = reg1 + t + devConstants.ncomp*j_rlm*devConstants.istep_rlm[1]; 
+      idx = reg1 + t + constants.ncomp*j_rlm*constants.istep_rlm[1]; 
       vrs1 += sp_rlm[idx - 1] * schmidt[count];
     } 
       
-    idx_rtm = t + 3*devConstants.nvector + devConstants.ncomp*((blockIdx.x) * devConstants.istep_rtm[1] + threadIdx.x*devConstants.istep_rtm[0] + (blockIdx.y)*devConstants.istep_rtm[2]); 
+    idx_rtm = t + 3*constants.nvector + constants.ncomp*((blockIdx.x) * constants.istep_rtm[1] + threadIdx.x*constants.istep_rtm[0] + (blockIdx.y)*constants.istep_rtm[2]); 
     vr_rtm[idx_rtm - 1] = vrs1;
   } 
 }
@@ -1040,10 +1040,10 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   constants.nvector = *nvector;
   constants.nscalar = *nscalar;
 
-  initDevConstVariables();
+  //initDevConstVariables();
 
-  dim3 grid5(nTheta, nShells);
-  dim3 block5(constants.nidx_rtm[2],1,1);
+//  dim3 grid5(nTheta, nShells);
+//  dim3 block5(constants.nidx_rtm[2],1,1);
   dim3 grid3(nTheta, constants.nidx_rtm[2]);
   dim3 block3(nShells,1,1);
 //  transB_dydt<<<grid3, block3, 0, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
@@ -1051,18 +1051,18 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
 //  transB_dydt_smem_a_r<<<grid3, block3, sizeof(double)*nShells, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
  // transB_dydt_smem_dpschmidt<<<grid3, block3, sizeof(double)*constants.nidx_rlm[1], streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
   
-  dim3 block8(nShells,constants.nvector,1);
+//  dim3 block8(nShells,constants.nvector,1);
 //  transB_dydt_smem_schmidt_more_threads<<<grid3, block8, sizeof(double)*2*constants.nidx_rlm[1], streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
  // transB_dydt_read_only_data<<<grid5, block5, 0, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl);
 //Fastest
-// transB_dydp<<<grid3, block3, sizeof(double)*nShells, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);
+ //transB_dydp<<<grid3, block3, sizeof(double)*nShells, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);
 //  transB_dydp_smem_schmidt_more_threads<<<grid3, block8, sizeof(double)*constants.nidx_rlm[1], streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);
 // transB_scalar<<<grid3, block3, 0, streams[1]>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl);
 
 //  transB_scalar_L1_cache<<<grid3, block3, 0, streams[1]>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl);
 
 //FASTEST
-  transB_scalar_smem<<<grid3, block3, (constants.t_lvl+1)*sizeof(double), streams[1]>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl);
+  transB_scalar_smem<<<grid3, block3, (constants.t_lvl+1)*sizeof(double), streams[1]>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl, constants);
 
 //  dim3 grid4(nTheta, constants.nidx_rtm[2], nShells);
 //  dim3 block4(constants.nscalar,1,1);
@@ -1071,11 +1071,11 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
 //  transB_scalar_block_mp_rlm<<<grid5, block5, 0, streams[1]>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl);
 //  transB_scalar_block_mp_rlm_smem<<<grid5, block5, constants.nidx_rlm[1]*sizeof(double), streams[1]>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl);
 
-  int jst, jed, l;
+ /* int jst, jed, l;
   int m=0, m0=0, m1=0;
 
   bool begin_set = false, end_set = false;
- 
+*/ 
   dim3 grid(nTheta, constants.nidx_rtm[2]);
   dim3 block(nShells,constants.nvector,1);
 //  transB_m_l_ver3D_block_of_vectors_smem<<<grid, block, nShells*sizeof(double), streams[l%2]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, d_debug.P_smdt, d_debug.dP_smdt, deviceInput.g_sph_rlm, deviceInput.asin_theta_1d_rtm);

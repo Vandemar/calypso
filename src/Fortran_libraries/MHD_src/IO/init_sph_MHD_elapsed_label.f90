@@ -30,7 +30,7 @@
 !
 !
 #if defined(CUDA)
-      num_elapsed = 63
+      num_elapsed = 65
 #else
       num_elapsed = 54
 #endif
@@ -111,6 +111,8 @@
       elapse_labels(61) = 'Mem free on Dev & host 4 leg. transi.'
       elapse_labels(62) = 'Mem alloc of grid & harmonic space CPU'
       elapse_labels(63) = 'initalization of GPU'
+      elapse_labels(64) = 'cpy vr_rtm host2dev for fwd. trans.'
+      elapse_labels(65) = 'cpy sp_rlm dev2host for fwd. trans.'
 #endif
       end subroutine set_sph_MHD_elapsed_label
 !
@@ -126,7 +128,7 @@
         call reset_eleps_time(i)
       end do
 #ifdef CUDA
-      do i = 57, 60
+      do i = 57, 65
         call reset_eleps_time(i)
       end do
 #endif

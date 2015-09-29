@@ -128,8 +128,13 @@
       call clear_fwd_legendre_work(ncomp)
 #endif
 !
+      call start_eleps_time(64) 
       call clear_spectrum_data(ncomp)
       call cpy_physical_dat_2_gpu(ncomp, vr_rtm_wk(1)) 
+#if defined(CUDA_TIMINGS)
+        call sync_device
+#endif
+      call end_eleps_time(64)
 
       if(nvector .gt. 0 .OR. nscalar .gt. 0) then
         call start_eleps_time(60)
@@ -150,7 +155,7 @@
       end if
 #endif
 
-        call start_eleps_time(58) 
+        call start_eleps_time(65) 
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
          call cpy_spec_dev2host_4_debug
 #elif defined(CUDA_OPTIMIZED)
@@ -159,7 +164,7 @@
 #if defined(CUDA_TIMINGS)
         call sync_device
 #endif
-        call end_eleps_time(58) 
+        call end_eleps_time(65) 
 !
 
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)

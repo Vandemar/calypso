@@ -172,7 +172,7 @@ __global__ void transB_scalar_opt_mem_access(int *lstack_rlm, double *vr_rtm, do
 __global__ void transB_scalar_block_mp_rlm(int const* __restrict__ lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double const* __restrict__ P_jl);
 __global__ void transB_scalar_block_mp_rlm_smem(int const* __restrict__ lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl);
 __global__ void transB_scalar_L1_cache(int const* __restrict__ lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double const* __restrict__ P_jl);
-__global__ void transB_scalar_smem(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl);
+__global__ void transB_scalar_smem(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl, const Geometry_c constants);
 __global__ void transB_scalars_OTF(int *lstack_rlm, int m0, int m1, int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *g_sph_rlm, double *asin_theta_1d_rtm); 
 __global__ void transB_scalars_OTF_smem(int *lstack_rlm, int m0, int m1, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *g_sph_rlm, double *asin_theta_1d_rtm);
 
