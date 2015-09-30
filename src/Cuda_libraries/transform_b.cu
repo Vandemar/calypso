@@ -106,77 +106,60 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
 #endif 
   //dim3 grid(nTheta, nModes)
   //dim3 block(x, nshells, nvectors) 
-  int x, y;
+  int m, l;
   int order, degree;
   int jst = 1;
   int jed;
   int mp_rlm = blockIdx.y+1;
   int mn_rlm = devConstants.nidx_rtm[2] - mp_rlm + 1;
   jst += lstack_rlm[blockIdx.y];
-  x = devConstants.nidx_rlm[1] * 2 - 1; 
-  y = devConstants.nidx_rlm[1] - 1; 
+  l = devConstants.nidx_rlm[1] * 2 - 1; 
+  m = devConstants.nidx_rlm[1] - 1; 
   jed = lstack_rlm[blockIdx.y+1];
-  x += jst;
-  y += jst;
-  order = abs(idx_gl_1d_rlm_j[x]); 
-  degree = idx_gl_1d_rlm_j[y]; 
+  m += jst;
+  l += jst;
+//In fortran, column-major:
+//idx_gl_1d_rlm_j(j,1): global ID for spherical harmonics
+//idx_gl_1d_rlm_j(j,2): spherical hermonincs degree
+//idx_gl_1d_rlm_j(j,3): spherical hermonincs order
+
+  order = abs(idx_gl_1d_rlm_j[m]); 
+  degree = idx_gl_1d_rlm_j[l]; 
   
-  if(degree == 0 || degree == 1) 
+  if(degree == 0 || degree == 1 || degree == -1) 
     return;
   
   double theta = g_colat_rtm[blockIdx.x]; 
   
+  // m,l
   double lgp=1;
   double sin_theta_l=1; 
-//calculateLGP_mp1_eq_l(order-1, x, p_mn_l_0);
- // return __dmul_rd(__dmul_rd(lgp_m_eq_l, __dsqrt_rd(2*mode+1)),x); 
-  // m-1,l-1
-  order--;
   for(int k=1; k<=order; k++) {
     lgp *= __ddiv_ru((double)2*k-1, (double)2*k);
   }
-  double p_mn_l_0 = __dmul_rd(2, lgp);
-  x = (order<<1) + 1;  
   double cos_theta = cos(theta);
   double sin_theta = sin(theta);
-  // m-1,l
-  double p_mn_l_1 = __dsqrt_rd(x*p_mn_l_0);
-  p_mn_l_0 = __dsqrt_rd(p_mn_l_0); 
-  x += 2; 
   for(int k=0; k<degree; k++)
     sin_theta_l *= sin_theta;
-  order++;
-  p_mn_l_1 *= cos_theta;
-
-  // m,l
-  degree++;
-  lgp *= __ddiv_ru((double)2*order-1, (double)2*order);
-  double p_m_l_1 = __dsqrt_rd(x); 
-  x += 2;
-  double p_m_l_0 = __dsqrt_rd(__dmul_rd(2, lgp)); 
-  double dp_m_l = __dmul_rd(sin_theta_l, p_mn_l_1);
-  dp_m_l *= __dsqrt_rd(2*order);
-  order++;
+  double reg1 = __dmul_rd((double)2, lgp)
+  double p_m_l_0 = __dsqrt_rd(reg1) * sin_theta_l;
+  double reg2 = __dmul_rd((double) (2*order + 1), cos_theta); 
   // m,l+1
-  p_m_l_1 *= cos_theta*p_m_l_0;
+  degree++;
+  double p_m_l_1 = __dsqrt_rd(__dmul_rd(reg1, reg2));
+//  double dp_m_l = __dmul_rd(sin_theta_l, p_mn_l_1);
+//  dp_m_l *= __dsqrt_rd(2*order);
 #ifdef CUDA_DEBUG
-  int idx_debug = blockIdx.x*devConstants.nidx_rlm[1] + degree*(degree+1) + order-1;
+  int j = (degree-1)*(degree) + order;  
+  int idx_debug = blockIdx.x*devConstants.nidx_rlm[1] + j;
   debug_P_smdt[idx_debug] = p_m_l_0; 
 #endif     
 
-  // m+1,l+1 
-  lgp *= __ddiv_ru((double)2*order-1, (double)2*order);
-  double p_mp_l_1 = __dsqrt_rd(x); 
-  double p_mp_l_0 = __dsqrt_rd(__dmul_rd(2, lgp)); 
-  order--;
-  dp_m_l *= 0.5;
-  // m+1,l+2
+  //dp_m_l *= 0.5;
   double a_r_1d = a_r_1d_rlm_r[threadIdx.x];
-  p_mp_l_1 *= cos_theta*p_mp_l_0;
- 
-  double reg1, reg2, reg3; 
+  double reg2, reg3; 
   int idx, idx_rtm_mp, idx_rtm_mn;
-  // x and y are unused integer variables
+  int x,y;
   x = threadIdx.x * devConstants.istep_rlm[0] * devConstants.ncomp;
   y = (threadIdx.y+1)*3;
   double a_r_1d_sq = a_r_1d * a_r_1d;
@@ -185,25 +168,26 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
   double dPdt;
   for(int j_rlm=jst; j_rlm<=jed; j_rlm++, degree++) {
     idx = devConstants.ncomp * (j_rlm-1) * devConstants.istep_rlm[1] + x + y; 
-    reg3 = __dmul_rd(sin_theta_l, p_m_l_0);
-    reg2 = -1 * __dmul_rd(asin_theta,reg3);
-    dPdt = __dmul_rd(a_r_1d, dp_m_l);
+    reg2 = -1 * __dmul_rd(asin_theta,p_m_l_0);
+    //dPdt = __dmul_rd(a_r_1d, dp_m_l);
     reg1 = __dmul_rd(a_r_1d, reg2);
      
     vr5 += sp_rlm[idx - 1] * reg1;
     vr4 += sp_rlm[idx - 2] * reg1; 
-    vr3 += sp_rlm[idx - 3] * a_r_1d_sq * reg3 * g_sph_rlm[j_rlm-1];    
-    vr2 += sp_rlm[idx - 2]  * dPdt;
-    vr1 -= sp_rlm[idx - 1] * dPdt;    
+    vr3 += sp_rlm[idx - 3] * a_r_1d_sq * p_m_l_0 * g_sph_rlm[j_rlm-1];    
+   // vr2 += sp_rlm[idx - 2]  * dPdt;
+   // vr1 -= sp_rlm[idx - 1] * dPdt;    
       
     // m-1, l+1 
-    reg1 = calculateLGP_m_l_mod(order-1, degree+1, cos_theta, p_mn_l_0, p_mn_l_1); 
-    p_mn_l_0 = p_mn_l_1;
-    p_mn_l_1 = reg1;
+    //reg1 = calculateLGP_m_l_mod(order-1, degree+1, cos_theta, p_mn_l_0, p_mn_l_1); 
+    //p_mn_l_0 = p_mn_l_1;
+    //p_mn_l_1 = reg1;
 
     // m, l+2
     reg2 = calculateLGP_m_l_mod(order, degree+2, cos_theta, p_m_l_0, p_m_l_1);
     p_m_l_0 = p_m_l_1;
+    sin_theta_l *= sin_theta;
+    p_m_l_0 *= sin_theta_l;
     // p_m_l_0, m, l+1
     p_m_l_1 = reg2;
  
@@ -212,16 +196,16 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
   debug_P_smdt[idx_debug] = p_m_l_0; 
 #endif
     //m, l+1
-    sin_theta_l *= sin_theta; 
-    reg1 = sin_theta_l * p_mn_l_1;
-    reg2 = sin_theta_l * p_mp_l_0; 
-    dp_m_l = nextDp_m_l(order, degree+1, reg1, reg2);
+//    sin_theta_l *= sin_theta; 
+//    reg1 = sin_theta_l * p_mn_l_1;
+//    reg2 = sin_theta_l * p_mp_l_0; 
+//    dp_m_l = nextDp_m_l(order, degree+1, reg1, reg2);
      
     //m+1, l+3
-    reg3 = calculateLGP_m_l_mod(order+1, degree+3, cos_theta, p_mp_l_0, p_mp_l_1);  
-    p_mp_l_0 = p_mp_l_1;
+//    reg3 = calculateLGP_m_l_mod(order+1, degree+3, cos_theta, p_mp_l_0, p_mp_l_1);  
+//    p_mp_l_0 = p_mp_l_1;
     // p_mp_1_0, m+1, l+2
-    p_mp_l_1 = reg3;
+//    p_mp_l_1 = reg3;
         
   }
   // mp_rlm 

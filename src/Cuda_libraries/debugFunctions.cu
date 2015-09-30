@@ -34,14 +34,14 @@ void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *d
     for(int mp_rlm=1; mp_rlm<=constants.nidx_rtm[2]; mp_rlm++){
       jst = h_debug.lstack_rlm[mp_rlm-1] + 1; 
       jed = h_debug.lstack_rlm[mp_rlm];
-      for(int l_rtm=1; l_rtm<=constants.nidx_rtm[1]; l_rtm++) {
-        for(int j_rlm=jst; j_rlm <=jed; j_rlm++) {
-          m = h_debug.idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + j_rlm-1];
-          l = h_debug.idx_gl_1d_rlm_j[constants.nidx_rlm[1] + j_rlm-1];
-          j = l*(l+1) + m;
-          pos = (l_rtm-1)*constants.nidx_rlm[1] + l*(l+1) + m;
-          schmidt << m << "\t" <<  l << "\t" << P_jl[constants.nidx_rlm[1]*(l_rtm-1) + j] << "\t" << h_debug.P_smdt[pos]<< "\t" << dP_jl[constants.nidx_rlm[1]*(l_rtm-1) + j] << "\t" << h_debug.dP_smdt[pos] << "\n"; 
-        }
+      //Printing out the ass. legendre polynomials for a single theta value
+      int l_rtm=1;
+      for(int j_rlm=jst; j_rlm <=jed; j_rlm++) {
+        m = h_debug.idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + j_rlm-1];
+        l = h_debug.idx_gl_1d_rlm_j[constants.nidx_rlm[1] + j_rlm-1];
+        j = l*(l+1) + m;
+        pos = (l_rtm-1)*constants.nidx_rlm[1] + l*(l+1) + m;
+        schmidt << m << "\t" <<  l << "\t" << P_jl[constants.nidx_rlm[1]*(l_rtm-1) + j] << "\t" << h_debug.P_smdt[pos]<< "\t" << dP_jl[constants.nidx_rlm[1]*(l_rtm-1) + j] << "\t" << h_debug.dP_smdt[pos] << "\n"; 
       }
     }
    schmidt.close();
