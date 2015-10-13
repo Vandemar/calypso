@@ -154,9 +154,9 @@ __global__ void transB_m_l_ver6D(int *lstack_rlm, int m0, int m1, int *idx_gl_1d
 __global__ void transB(double *vr_rtm, const double *sp_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm); 
 */
 #ifndef CUDA_DEBUG
-__global__ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ idx_gl_1d_rlm_j, double const* __restrict__ g_colat_rtm, double const* __restrict__ g_sph_rlm, double const* __restrict__ asin_theta_1d_rtm, double const* __restrict__ a_r_1d_rlm_r, double const* __restrict__ sp_rlm, double *vr_rtm);
+__global__ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ idx_gl_1d_rlm_j, double const* __restrict__ g_colat_rtm, double const* __restrict__ g_sph_rlm, double const* __restrict__ asin_theta_1d_rtm, double const* __restrict__ a_r_1d_rlm_r, double const* __restrict__ sp_rlm, double *vr_rtm, double *leg_poly_m_eq_l,const Geometry_c constants);
 #else
-__global__ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ idx_gl_1d_rlm_j, double const* __restrict__ g_colat_rtm, double const* __restrict__ g_sph_rlm, double const* __restrict__ asin_theta_1d_rtm, double const* __restrict__ a_r_1d_rlm_r, double const* __restrict__ sp_rlm, double *vr_rtm, double *P_smdt, double *dP_smdt);
+__global__ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ idx_gl_1d_rlm_j, double const* __restrict__ g_colat_rtm, double const* __restrict__ g_sph_rlm, double const* __restrict__ asin_theta_1d_rtm, double const* __restrict__ a_r_1d_rlm_r, double const* __restrict__ sp_rlm, double *vr_rtm, double *P_smdt, double *dP_smdt, double *leg_poly_m_eq_l, const Geometry_c constants);
 #endif
 __global__ void set_leg_poly_m_ep_l(double *leg_poly_m_eq_l);
 
