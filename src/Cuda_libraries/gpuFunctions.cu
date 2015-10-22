@@ -23,6 +23,7 @@ void initialize_gpu_() {
     cudaProfilerStart();
   #endif
   cudaErrorCheck(cudaDeviceSetCacheConfig(cudaFuncCachePreferShared));
+  cudaErrorCheck(cudaDeviceSharedMemConfig(cudaSharedMemBankSizeEightByte));
   cudaFree(0);
 }
 

@@ -106,7 +106,7 @@ __global__
 void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ idx_gl_1d_rlm_j, double const* __restrict__ g_colat_rtm, double const* __restrict__ g_sph_rlm, double const* __restrict__ asin_theta_1d_rtm, double const* __restrict__ a_r_1d_rlm_r, double const* __restrict__ sp_rlm, double *vr_rtm, double *debug_P_smdt, double *debug_dP_smdt, double* leg_poly_m_eq_l, const Geometry_c constants) {
 #else
 __global__
-void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ idx_gl_1d_rlm_j, double const* __restrict__ g_colat_rtm, double const* __restrict__ g_sph_rlm, double const* __restrict__ asin_theta_1d_rtm, double const* __restrict__ a_r_1d_rlm_r, double const* __restrict__ sp_rlm, double *vr_rtm, double *leg_poly_m_eq_l, const Geometry_c constatns) {
+void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ idx_gl_1d_rlm_j, double const* __restrict__ g_colat_rtm, double const* __restrict__ g_sph_rlm, double const* __restrict__ asin_theta_1d_rtm, double const* __restrict__ a_r_1d_rlm_r, double const* __restrict__ sp_rlm, double *vr_rtm, double *leg_poly_m_eq_l, const Geometry_c constants) {
 #endif 
   //dim3 grid(nTheta, nModes)
   //dim3 block(nshells, nvectors) 
@@ -131,7 +131,7 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
   order = abs(idx_gl_1d_rlm_j[m]); 
   degree = idx_gl_1d_rlm_j[l]; 
   
-  if(degree == 0 || degree == 1) 
+  if(degree == 0) 
     return;
   
   double theta = g_colat_rtm[blockIdx.x]; 
@@ -139,12 +139,12 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
   // m,l
   double lgp=1;
   double sin_theta_l=1; 
-  for(int k=1; k<=order; k++) {
+  for(int k=1; k<=degree; k++) {
     lgp *= __ddiv_ru((double)2*k-1, (double)2*k);
   }
   double cos_theta = cos(theta);
   double sin_theta = sin(theta);
-  for(int k=0; k<order; k++)
+  for(int k=0; k<degree; k++)
     sin_theta_l *= sin_theta;
   double reg1 = __dmul_rd((double)2, lgp);
   double p_m_l_0 = __dsqrt_rd(reg1);
@@ -152,9 +152,13 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
   // m,l+1
   degree++;
   double p_m_l_1 = __dmul_rd(__dsqrt_rd(reg2), cos_theta);
-  double dp_m_l = __dmul_rd(cos_theta, p_m_l_0*sin_theta_l);
+  // Normalize p_m_l_0 and p_m_l_1
+  p_m_l_0 = __dmul_rd(p_m_l_0, sin_theta_l);
+  double dp_m_l = __dmul_rd(cos_theta, p_m_l_0);
+  p_m_l_1 = __dmul_rd(p_m_l_1, sin_theta_l);
+  // Compute normalized dp dtheta
   dp_m_l *= (double) degree;
-  reg1 = __dmul_rd((double)order - degree, __dmul_rd(p_m_l_1,sin_theta_l));
+  reg1 = __dmul_rd((double)order - degree,p_m_l_1);
   reg2 = __dsqrt_rd(__ddiv_rd((double) order+degree, (double) degree-order));
   double reg3 = -sin(theta);
   dp_m_l = __dadd_rd(dp_m_l, __dmul_rd(reg2, reg1));
@@ -163,13 +167,14 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
   if(blockIdx.x ==0 && threadIdx.x ==0 && threadIdx.y==0) {
   int j = (degree-1)*(degree) + order;  
   int idx_debug2 = blockIdx.x*constants.nidx_rlm[1] + j;
-  debug_P_smdt[idx_debug2] = p_m_l_0*sin_theta_l; 
+  debug_P_smdt[idx_debug2] = p_m_l_0; 
   debug_dP_smdt[idx_debug2] = dp_m_l; 
   idx_debug2 = blockIdx.x*constants.nidx_rlm[1] + (degree-1)*(degree) - order;
-  debug_P_smdt[idx_debug2] = p_m_l_0*sin_theta_l; 
+  debug_P_smdt[idx_debug2] = p_m_l_0; 
   debug_dP_smdt[idx_debug2] = dp_m_l;} 
 #endif     
 
+  degree--;
   //dp_m_l *= 0.5;
   double a_r_1d = a_r_1d_rlm_r[threadIdx.x];
   int idx, idx_rtm_mp, idx_rtm_mn;
@@ -184,33 +189,45 @@ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __restrict__ 
     idx = constants.ncomp * (j_rlm-1) * constants.istep_rlm[1] + x + y; 
     reg2 = -1 * __dmul_rd(asin_theta,p_m_l_0);
     dPdt = __dmul_rd(a_r_1d, dp_m_l);
-    reg1 = __dmul_rd(a_r_1d, reg2 * sin_theta_l);
+    reg1 = __dmul_rd(a_r_1d, reg2);
      
     vr5 += sp_rlm[idx - 1] * reg1;
     vr4 += sp_rlm[idx - 2] * reg1; 
-    vr3 += sp_rlm[idx - 3] * a_r_1d_sq * p_m_l_0 * g_sph_rlm[j_rlm-1] *sin_theta_l;    
+    vr3 += sp_rlm[idx - 3] * a_r_1d_sq * p_m_l_0 * g_sph_rlm[j_rlm-1];    
     vr2 += sp_rlm[idx - 2] * dPdt;
     vr1 -= sp_rlm[idx - 1] * dPdt;    
     // m, l+2
-    reg2 = calculateLGP_m_l_mod(order, degree+1, cos_theta, p_m_l_0, p_m_l_1);
+    reg1 = __ddiv_rd((double) degree+2-order, (double) degree+2+order);
+    reg2 = __dmul_rd(cos_theta, p_m_l_1);
+    reg1 = __dsqrt_rd(reg1);
+    reg2 = __dmul_rd((double) 2*degree + 3, reg2);
+    reg3 = (double) (degree+2-order) * (degree+1-order);
+    //One coefficient
+    reg1 = __dmul_rd(reg1, reg2);
+    reg2 = __dmul_rd((double) order+degree+1, p_m_l_0);
+    // dp_m_l is a misnomer here
+    dp_m_l = (double) (degree+2+order) * (degree+order+1); 
     p_m_l_0 = p_m_l_1;
-    // p_m_l_0, m, l+1
-    p_m_l_1 = reg2;
+    p_m_l_1 = __dsqrt_rd(__ddiv_rd(reg3, dp_m_l));
+    p_m_l_1 = __dmul_rd(p_m_l_1, reg2);
+    reg3 = (double) degree-order+2;
+    // p_m_l_0, m, l+2
+    p_m_l_1 = __ddiv_rd(__dadd_rd(reg1,-1*p_m_l_1), reg3);
     //dp_m_l 
-    dp_m_l = __dmul_rd(cos_theta, p_m_l_0*sin_theta_l);
-    dp_m_l *= (double) degree+1;
-    reg1 = __dmul_rd((double)order - degree - 1, __dmul_rd(p_m_l_1,sin_theta_l));
-    reg2 = __dsqrt_rd(__ddiv_rd((double) degree+order+1, (double) degree-order+1));
+    dp_m_l = __dmul_rd(cos_theta, p_m_l_0);
+    dp_m_l *= (double) degree+2;
+    reg1 = __dmul_rd((double)order - degree - 2,p_m_l_1);
+    reg2 = __dsqrt_rd(__ddiv_rd((double) degree+order+2, (double) degree-order+2));
     reg3 = -sin(theta);
     dp_m_l = __dadd_rd(dp_m_l, __dmul_rd(reg2, reg1));
     dp_m_l = __ddiv_rd(dp_m_l, reg3);
 #ifdef CUDA_DEBUG
   if(blockIdx.x ==0 && threadIdx.x ==0 && threadIdx.y==0) {
-  int idx_debug = blockIdx.x*constants.nidx_rlm[1] + (degree)*(degree+1) + order;
-  debug_P_smdt[idx_debug] = p_m_l_0*sin_theta_l; 
+  int idx_debug = blockIdx.x*constants.nidx_rlm[1] + (degree+1)*(degree+2) + order;
+  debug_P_smdt[idx_debug] = p_m_l_0; 
   debug_dP_smdt[idx_debug] = dp_m_l; 
-  idx_debug = blockIdx.x*constants.nidx_rlm[1] + (degree)*(degree+1) - order;
-  debug_P_smdt[idx_debug] = p_m_l_0*sin_theta_l; 
+  idx_debug = blockIdx.x*constants.nidx_rlm[1] + (degree+1)*(degree+2) - order;
+  debug_P_smdt[idx_debug] = p_m_l_0; 
   debug_dP_smdt[idx_debug] = dp_m_l; }
 #endif
   }
