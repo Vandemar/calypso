@@ -1,8 +1,10 @@
 #include <cuda_runtime.h>
-#include "legendre_poly.h"
 #include <math.h>
 #include <sstream>
 
+#include "legendre_poly.h"
+//TODO: Use the logger class to write results
+ 
 void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *dP_jl) {
 
   #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)

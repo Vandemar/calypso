@@ -69,7 +69,7 @@ IF (CUDA_FOUND)
   # through xsede.
   #SET (CUDA_LIBRARY_FLAGS "-I${CUDA_INCLUDE_DIRS};-L${CUDA_TOOLKIT_ROOT_DIR}/lib64;-lcudart;-lcublas;-lcuda;-lcublas_device;-lcudadevrt")
   SET (CUDA_LIBRARY_FLAGS
-"-L${CUDA_TOOLKIT_ROOT_DIR}/lib64;-lcudart;-lcuda;-lcudadevrt;-lstdc++")
+"-L${CUDA_TOOLKIT_ROOT_DIR}/lib64;-lcuda;-lcudart;-lstdc++")
 ENDIF(CUDA_FOUND)
 
 #Need to set this s.t when user specifies Degug mode, these flags are set

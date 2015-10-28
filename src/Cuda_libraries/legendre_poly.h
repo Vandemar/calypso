@@ -8,6 +8,11 @@
 #include <fstream>
 #include <iostream>
 //#include <mpi.h>
+//#include <cub/block/block_reduce.cuh>
+#include "/home/harsha_lv/Downloads/cub-1.4.1/cub/block/block_reduce.cuh"
+
+#include "logger.h"
+
 #ifdef CUDA_TIMINGS
   #include "cuda_profiler_api.h"
 #endif
@@ -21,7 +26,9 @@ using namespace std;
 */
 //Function and variable declarations.
 extern int nComp;
-//CPU pointers to GPU memory data
+// For the kernel transF_vec_reduction
+extern int minGridSize;
+extern int blockSize; 
 
 // Fortran function calls
 extern "C" {
@@ -71,6 +78,15 @@ typedef struct
   double *leg_poly_m_eq_l;
 } Parameters_s;
 
+typedef struct
+{
+  int *mdx_p_rlm_rtm;
+  int *mdx_n_rlm_rtm;
+  int *idx_gl_1d_rlm_j;
+  double *radius_1d_rlm_r;
+  double *g_sph_rlm_7;
+} References;
+
 typedef struct 
 {
   double *P_smdt; 
@@ -83,13 +99,16 @@ typedef struct
 // Dim: jx3
 } Debug;
 
+//CPU pointers to GPU memory data
 extern Parameters_s deviceInput;
+//Memory for debugging kernels
 extern Debug h_debug, d_debug;
 extern Geometry_c constants;
+//C Pointers to Fortran allocated memory
+extern References hostData;
 
-//FileStreams: For debugging and Timing
-//D for debug
-//extern std::ofstream clockD;
+//FileStream for recording performance 
+extern Logger cudaPerformance;
 
 // Counters for forward and backward Transform
 extern int countFT, countBT;
@@ -138,6 +157,10 @@ void cuda_sync_device_();
   __device__ double scaleBySine(int mode, double lgp, double theta);
 }
 
+// Shortcuts and Simplifications
+  void cudaDevSync();
+//
+
 /*__global__ void transB_m_l_eq0_ver1D(int mp_rlm, int jst, int jed, double *vr_rtm,  double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *P_smdt, double *dP_smdt, double *g_sph_rlm, double *asin_theta_1d_rtm); 
 __global__ void transB_m_l_eq1_ver1D( int mp_rlm,  int jst,  int jed, int order, int degree, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r,     double *g_colat_rtm, double *P_smdt, double *dP_smdt, double *g_sph_rlm, double *asin_theta_1d_rtm);
 __global__ void transB_m_l_ver1D( int mp_rlm,  int jst,  int jed, int order, int degree, double *vr_rtm,  double *sp_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *P_smdt, double *dP_smdt, double *g_sph_rlm, double *asin_theta_1d_rtm);
@@ -179,3 +202,14 @@ __global__ void transB_scalars_OTF_smem(int *lstack_rlm, int m0, int m1, int *id
 __global__ void transF_vec(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants); 
 __global__ void transF_vec_smem_schmidt(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants); 
 __global__ void transF_scalar(int kst, double *vr_rtm, double *sp_rlm, double *weight_rtm, int *mdx_p_rlm_rtm, double *P_rtm, double *g_sph_rlm_7, const Geometry_c constants);
+
+//Reduction Declerations
+void transformMode(int shellId, int modeId);
+__global__ void integrateFirstComponent(bool init, int shellId, int modeId, int vectorId, int order, int mdx_n, int mdx_p, double r_1d_rlm_r_sq, double gauss_norm, double *g_colat_rtm, double *weight_rtm, double *asin_theta_1d_rtm, double const* __restrict__ P_rtm, double *sp_rlm, double const* __restrict__ input, double *output, const Geometry_c constants);
+
+//Reduction using CUDA UnBound
+template< int ITEMS_PER_THREAD, 
+		  cub::BlockReduceAlgorithm ALGORITHM, typename T>
+__global__ void transF_vec_reduction(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants);
+//A unary function whose input is the block size and returns the size in bytes of shared memory needed by a block
+size_t computeSharedMemory(int blockSize);

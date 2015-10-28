@@ -1,15 +1,20 @@
 #include <cuda_runtime.h>
-#include "legendre_poly.h"
-#include "math_functions.h"
-#include "math_constants.h"
 #include <math.h>
 #include <unistd.h>
+
+#include "legendre_poly.h"
+
+#include "math_functions.h"
+#include "math_constants.h"
 
 Parameters_s deviceInput;
 Debug h_debug, d_debug;
 Geometry_c constants;
+References hostData;
+Logger cudaPerformance("Metrics.log", 3);
 
 int countFT=0, countBT=0;
+int minGridSize=0, blockSize=0;
 
 cudaStream_t streams[2];
 
@@ -23,11 +28,22 @@ void initialize_gpu_() {
     cudaProfilerStart();
   #endif
   cudaErrorCheck(cudaDeviceSetCacheConfig(cudaFuncCachePreferShared));
-  cudaErrorCheck(cudaDeviceSharedMemConfig(cudaSharedMemBankSizeEightByte));
+  cudaErrorCheck(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte));
   cudaFree(0);
 }
 
 void set_constants_(int *nnod_rtp, int *nnod_rtm, int *nnod_rlm, int nidx_rtm[], int nidx_rlm[], int istep_rtm[], int istep_rlm[], int *trunc_lvl, int *np_smp) {
+
+  cudaPerformance.recordProblemDescription(*trunc_lvl, nidx_rtm[0], nidx_rtm[1]);
+  cudaPerformance.echoProblemDescription();
+
+  //For best occupancy
+  cudaErrorCheck(cudaOccupancyMaxPotentialBlockSizeVariableSMem(&minGridSize,
+																&blockSize,
+																transF_vec_reduction< 10, 
+																  cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
+																		double>, 
+																computeSharedMemory));  
 
   for(int i=0; i<3; i++) { 
     constants.nidx_rtm[i] = nidx_rtm[i];
@@ -133,6 +149,13 @@ void alloc_space_on_gpu_(int *ncmp, int *nvector, int *nscalar) {
 }
 
 void memcpy_h2d_(int *lstack_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *g_sph_rlm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, int *idx_gl_1d_rlm_j, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm) {
+   
+    hostData.mdx_p_rlm_rtm = mdx_p_rlm_rtm;
+    hostData.mdx_n_rlm_rtm = mdx_n_rlm_rtm;
+    hostData.idx_gl_1d_rlm_j = idx_gl_1d_rlm_j;
+    hostData.radius_1d_rlm_r = radius_1d_rlm_r;
+    hostData.g_sph_rlm_7= g_sph_rlm_7;
+
     h_debug.lstack_rlm = lstack_rlm;
  #ifdef CUDA_DEBUG 
     h_debug.g_colat_rtm = g_colat_rtm;
@@ -254,9 +277,21 @@ void cleangpu_() {
   #if defined(CUDA_TIMINGS)
     cudaProfilerStop();
   #endif
+
+  //Write performance metrics
+  //cudaPerformance.echoAllClocks();
+  cudaPerformance.closeStream();
 }
 
+//Fortran wrapper function
 void cuda_sync_device_() {
   cudaErrorCheck(cudaDeviceSynchronize());
 }
 
+void cudaDevSync() {
+  cudaErrorCheck(cudaDeviceSynchronize());
+}
+
+size_t computeSharedMemory(int blockSize) {
+  return blockSize * sizeof(double);
+} 

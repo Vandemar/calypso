@@ -1,9 +1,11 @@
 #include <cuda_runtime.h>
+#include <assert.h>
+
 #include "legendre_poly.h"
 #include "math_functions.h"
 #include "math_constants.h"
 //#include <sstream>
-
+/*
 #ifndef CUDA_DEBUG
 __global__
 void transF_m_l_OTF(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *P_rtm, double *dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants) {
@@ -32,7 +34,8 @@ void transF_m_l_OTF(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, dou
   
   if(degree == 0) 
     return;
-  
+ 
+  int k_rtm = threadIdx.x; 
   int mdx_p = mdx_p_rlm_rtm[blockIdx.x] - 1;
   int ip_rtm = k_rtm * constants.istep_rtm[0];
   int mdx_n = mdx_n_rlm_rtm[blockIdx.x] - 1;
@@ -42,7 +45,7 @@ void transF_m_l_OTF(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, dou
   mdx_n += ip_rtm;
 
   int idx;
-  int idx_p_rtm = blockIdx.x*nTheta; 
+  int idx_p_rtm = blockIdx.x*constants.nidx_rtm[0]; 
  
   double r_1d_rlm_r = radius_1d_rlm_r[k_rtm]; 
   int idx_sp = constants.ncomp * (blockIdx.x*constants.istep_rlm[1] + threadIdx.x*constants.istep_rlm[0]);
@@ -154,7 +157,7 @@ void transF_m_l_OTF(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, dou
   vr_rtm[idx_rtm_mn - 1 - 1] += vr5; 
   vr_rtm[idx_rtm_mn - 1] += vr4; 
 }
-
+*/
 __global__
 void transF_vec(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants) {
   //dim3 grid(constants.nidx_rlm[1],1,1);
@@ -224,6 +227,291 @@ void transF_vec(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm
 
   }
 }
+
+//Reduction using an open source library CUB supported by nvidia
+template <
+    int			ITEMS_PER_THREAD,
+	cub::BlockReduceAlgorithm  ALGORITHM, 
+    typename T>
+__global__ void transF_vec_reduction(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants) {
+  //dim3 grid(constants.nidx_rlm[1],constants.nidx_rtm[0],1);
+  //OLD:dim3 block(constants.nidx_rtm[0],1,1);
+
+  typedef cub::BlockReduce<T, blockDim.x, ALGORITHM> BlockReduceT;
+  __shared__ typename BlockReduceT::TempStorage temp_storage;  
+
+  int k_rtm = blockIdx.y;
+  int j_rlm = blockIdx.x;
+
+// 3 for m-1, m, m+1
+  unsigned int ip_rtm, in_rtm;
+
+  double reg0, reg1, reg2, reg3, reg4;
+  double sp1, sp2, sp3; 
+
+  int order = idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + j_rlm];
+//  int degree = idx_gl_1d_rlm_j[constants.nidx_rlm[1] + j_rlm];
+  double gauss_norm = g_sph_rlm_7[j_rlm];
+  int nTheta = constants.nidx_rtm[1];
+  int nVector = constants.nvector;
+  int nComp = constants.ncomp;
+  int istep_rtm_r = constants.istep_rtm[0];
+  int istep_rtm_t = constants.istep_rtm[1];
+  int istep_rtm_m = constants.istep_rtm[2];
+  int istep_rlm_r = constants.istep_rlm[0];
+  int istep_rlm_j = constants.istep_rlm[1];
+
+  int mdx_p = mdx_p_rlm_rtm[blockIdx.x] - 1;
+  ip_rtm = k_rtm * constants.istep_rtm[0];
+  int mdx_n = mdx_n_rlm_rtm[blockIdx.x] - 1;
+  mdx_p *= constants.istep_rtm[2];
+  mdx_n *= constants.istep_rtm[2];
+  mdx_p += ip_rtm;
+  mdx_n += ip_rtm;
+
+  int idx;
+  int idx_p_rtm = blockIdx.x*nTheta; 
+ 
+  double r_1d_rlm_r = radius_1d_rlm_r[k_rtm]; 
+  int idx_sp = nComp * ( blockIdx.x*istep_rlm_j + k_rtm*istep_rlm_r); 
+
+  double poloidal[ITEMS_PER_THREAD];
+  double radial_diff_poloidal[ITEMS_PER_THREAD]; 
+  double toroidal[ITEMS_PER_THREAD];
+
+  for(int t=1; t<=nVector; t++) {
+    sp1=sp2=sp3=0;
+    for(int counter=0; counter < ITEMS_PER_THREAD; counter++) {  
+      l_rtm = blockDim.x*counter + threadIdx.x; 
+      ip_rtm = 3*t + nComp * (l_rtm * istep_rtm_t + mdx_p); 
+      in_rtm = 3*t + nComp * (l_rtm * istep_rtm_t + mdx_n); 
+
+      idx = idx_p_rtm + l_rtm; 
+      reg0 = __dmul_rd(gauss_norm, weight_rtm[l_rtm]);
+      reg1 = __dmul_rd(reg0, P_rtm[idx]);
+      reg2 = __dmul_rd(reg0, dP_rtm[idx]);
+      reg4 = __dmul_rd(P_rtm[idx], (double) order);
+      reg1 = __dmul_rd(asin_theta_1d_rtm[l_rtm], reg0);
+      reg3 = __dmul_rd(reg4, reg1);         
+
+      poloidal[counter] = __dmul_rd(vr_rtm[ip_rtm-3], reg1);
+      reg0 = __dmul_rd(vr_rtm[ip_rtm-2], reg2);
+      reg4 =  -1 * __dmul_rd(vr_rtm[in_rtm-1], reg3);
+      reg3 *= vr_rtm[in_rtm-2];
+      reg2 *= vr_rtm[ip_rtm-1];
+      radial_diff_poloidal = __dadd_rd(reg0, reg4); 
+      // After the reduction, toroidal[...] * -1
+      toroidal[counter] = __dadd_rd(reg3, reg2); 
+    }
+    
+    idx_sp += 3; 
+
+    sp1 = BlockReduceT(temp_storage).Sum(poloidal);
+    sp2 = BlockReduceT(temp_storage).Sum(radial_diff_poloidal);
+    sp3 = -1 * BlockReduceT(temp_storage).Sum(toroidal);
+
+    sp_rlm[idx_sp-3] += __dmul_rd(__dmul_rd(r_1d_rlm_r, r_1d_rlm_r), sp1);
+    sp_rlm[idx_sp-2] += __dmul_rd(r_1d_rlm_r, sp2);
+    sp_rlm[idx_sp-1] += __dmul_rd(r_1d_rlm_r, sp3);
+
+  }
+}
+
+// modeId and shellId start at 0
+// How to run this function:
+/*  for(int shell=0; shell < constants.nidx_rlm[0]; shell++) {
+    for(int mode=0; mode < constants.nidx_rlm[1]; mode++) {
+	  transformMode(shell, mode);
+	}
+  }*/
+/*void transformMode(int shellId, int modeId) {
+  unsigned int threadCount = 32;
+  unsigned int blockCount= constants.nTheta/threadCount;
+
+  dim3 block(threadCount,1,1);
+
+  size_t smemSize = sizeof(double) * threadCount;
+  bool firstCall = true;
+  // A device pointer, that keeps track of reductions at the grid level
+  // Concurrent kernels require more gpu memory
+  double *devData[2];
+  cudaErrorCheck(cudaMalloc((void**)&(devData[0]), sizeof(double) * blockCount)); 
+  cudaErrorCheck(cudaMalloc((void**)&(devData[1]), sizeof(double) * blockCount/threadCount)); 
+  cudaErrorCheck(cudaMemset(devData[0], 0, sizeof(double) * blockCount));
+  cudaErrorCheck(cudaMemset(devData[1], 0, sizeof(double) * blockCount/threadCount));
+ 
+  for(unsigned int vectorId = 1; vectorId <= constants.nVector; vectorId++) {
+    dim3 grid(blockCount,1,1); 
+    const int mdx_p = (hostData.mdx_p_rlm_rtm[modeId] - 1) * constants.istep_rtm[2] + shellId * constants.istep_rtm[0]; 
+    const int mdx_n = (hostData.mdx_n_rlm_rtm[modeId] - 1) * constants.istep_rtm[2] + shellId * constants.istep_rtm[0]; 
+    const unsigned int order = hostData.idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + modeId];
+    const double r_1d_rlm_r_sq = std::pow(hostData.radius_1d_rlm_r[shellId], 2.0);
+    if(firstCall) { 
+      integrateFirstComponent<<<grid, block, smemSize>>> (firstCall, shellId, modeId, vectorId, order, mdx_n, mdx_p, r_1d_rlm_r_sq, hostData.g_sph_rlm_7[modeId], devConstants.g_colat_rtm, devConstants.weight_rtm, devConstants.asin_theta_1d_rtm, devConstants.P_rtm, devConstants.sp_rlm, devConstants.vr_rtm, devData[0], constants)
+      firstCall = false
+    } 
+    else {
+      // TODO, Fix: The number of blocks set when blockCount is less the threadCount will break the reduction
+      // Note that i and j alternate between 0 and 1. 
+      for(unsigned int nBlocks = blockCount/threadCount, i=0, j=1; nBlocks >= 1; nBlocks /= threadCount, i=++i%2, j=++j%2) { 
+        dim3 grid(nBlocks,1,1); 
+        integrateFirstComponent<<<grid, block, smemSize>>> (firstCall, shellId, modeId, vectorId, order, mdx_n, mdx_p, r_1d_rlm_r_sq, hostData.g_sph_rlm_7[modeId], devConstants.g_colat_rtm, devConstants.weight_rtm, devConstants.asin_theta_1d_rtm, devConstants.P_rtm, devConstants.sp_rlm, devData[i], devData[j], constants); 
+      }    
+      
+    }
+  }
+}
+
+// A recursive reduction algorithm.
+// One limitation is that, number of meridonal lines on a grid MUST be a power of 2.
+__global__
+void integrateFirstComponent(bool init, int shellId, int modeId, int vectorId, int order, int mdx_n, int mdx_p, double r_1d_rlm_r_sq, double gauss_norm, double *g_colat_rtm, double *weight_rtm, double *asin_theta_1d_rtm, double const* __restrict__ P_rtm, double *sp_rlm, double const* __restrict__ input, double *output, const Geometry_c constants) {
+  //Size of reductionSpace is the number of threads in a block. With that size, only the first component of a vector can be reduced. 
+  extern __shared__ double reductionSpace;
+
+  unsigned int threadId = threadIdx.x;
+  unsigned int thetaId = blockIdx.x*blockDim.x + threadIdx.x;
+  unsigned int polynomialIndex = constants.nidx_rtm[1] * modeId;
+
+  double reg1=0, reg2=0;
+  if(init) {
+    reg1 = __dmul_rd(asin_theta_1d_rtm[thetaId], P_rtm[polynomialIndex+thetaId]);
+    unsigned int ip_rtm = vectorId*3 + constants.ncomp * (thetaId * constants.istep_rtm[1] + mdx_p);
+    reg2 = __dmul_rd(gauss_norm, weight_rtm[thetaId]); 
+    reductionSpace[threadId] = __dmul_rd(__dmul_rd(reg1, input[ip_rtm-3]), reg2); 
+  }
+  else {
+    reductionSpace[threadId] = input[thetaId]; 
+  }
+
+  __syncthreads();
+
+  for(unsigned int stride = 1; stride < blockDim.x; stride *= 2) {
+    if(threadId % (2*stride) == 0)
+      reductionSpace[threadId] += reductionSpace[threadId + stride];
+
+    __syncthreads();
+  }
+
+  //Writing partially or fully reduced value 
+  if(threadId==0) 
+    output[blockIdx.x] = reductionSpace[0]; 
+  if(gridDim.x = 1) {
+    unsigned int idx = constants.nComp * (modeId*constants.istep_rlm[1] + shellId*constants.istep_rlm[0]) + 3*vectorId;
+    sp_rlm[idx-3] = reductionSpace[0];
+  }
+}
+*/
+/*
+void transF_vec_reduction(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants) {
+  //dim3 grid(constants.nidx_rlm[1],1,1);
+  //dim3 block(32,1,1);
+  // OLD: dim3 block(constants.nidx_rtm[0],1,1);
+  //Size of reductionSpace is the number of threads in a block. With that size, only the first component of a vector can be reduced. 
+  extern __shared__ double reductionSpace;
+  
+  unsigned int threadId = threadIdx.x;
+  unsigned int blockId = blockIdx.x;
+  unsigned int nTheta = constants.nidx_rtm[1];
+  unsigned int polynomialIndex = blockIdx.x*nTheta; 
+  unsigned int pos_physicalSpaceIndex = (mdx_p_rlm_rtm[blockId] - 1) * constants.istep_rtm[2]; 
+  unsigned int neg_physicalSpaceIndex = (mdx_n_rlm_rtm[blockId] - 1) * constants.istep_rtm[2]; 
+ 
+  double g_sph_rlm = g_sph_rlm_7[blockId]; 
+
+  double weight=0, normalizedMode=0;
+  unsigned int marker = 0;
+
+  for( unsigned int k_rtm = 0; k_rtm < constants.nidx_rtm[0]; k_rtm++) {
+    for( unsigned int reductionCounter = 0; reductionCounter < nTheta/blockDim.x; reductionCounter++) {
+      marker = reductionCounter * blockDim.x + threadId; 
+      weight = weight_rtm[marker];
+      normalizedMode = __dmul_rd(__dmul_rd(P_rtm[polynomialIndex + marker], g_sph_rlm), weight);
+      reductionSpace[threadId] = normalizedMode; 
+                 
+
+  // Will need to handle the case where the number of elements to be reduced is less than nThreads
+  unsigned int size_of_reductionSpace = 32;  
+  // This will need to be iterated based on ceil(nTheta/nThreads) 
+  
+  __syncthreads();
+  
+  // The number of iterations is a function of log base 2.   
+  // The stride is set to be the floor of (sWorkspace/2)
+  unsigned int stride = size_of_reductionSpace/2;  
+  unsigned int lBound = 0;  
+  unsigned int uBound = size_of_reductionSpace/2;  
+
+  for( unsigned int level=0; level < log2f(blockDim.x); level++, lBound = uBound, uBound = (size_of_reductionSpace - lBound)/2 ) {
+    if( lBound <= threadId && threadId < uBound )
+      reductionSpace[threadId + stride] = __dadd_rd(reductionSpace[threadId + stride], reductionSpace[threadId]);
+  }
+
+  //int j_rlm = blockIdx.x;
+
+// 3 for m-1, m, m+1
+  unsigned int ip_rtm, in_rtm;
+
+  double reg0, reg1, reg2, reg3, reg4;
+  double sp1, sp2, sp3; 
+
+  int order = idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + blockIdx.x];
+//  int degree = idx_gl_1d_rlm_j[constants.nidx_rlm[1] + blockIdx.x];
+  double gauss_norm = g_sph_rlm_7[blockIdx.x];
+  int nTheta = constants.nidx_rtm[1];
+  int nVector = constants.nvector;
+  int nComp = constants.ncomp;
+  int istep_rtm_r = constants.istep_rtm[0];
+  int istep_rtm_t = constants.istep_rtm[1];
+  int istep_rtm_m = constants.istep_rtm[2];
+  int istep_rlm_r = constants.istep_rlm[0];
+  int istep_rlm_j = constants.istep_rlm[1];
+
+  int mdx_p = mdx_p_rlm_rtm[blockIdx.x] - 1;
+  ip_rtm = k_rtm * constants.istep_rtm[0];
+  int mdx_n = mdx_n_rlm_rtm[blockIdx.x] - 1;
+  mdx_p *= constants.istep_rtm[2];
+  mdx_n *= constants.istep_rtm[2];
+  mdx_p += ip_rtm;
+  mdx_n += ip_rtm;
+
+  int idx;
+ 
+  double r_1d_rlm_r = radius_1d_rlm_r[k_rtm]; 
+  int idx_sp = nComp * ( blockIdx.x*istep_rlm_j + k_rtm*istep_rlm_r); 
+
+  reductionSpace[threadId] =  
+  for(int t=1; t<=nVector; t++) {
+    sp1=sp2=sp3=0;
+    for(int l_rtm=0; l_rtm<nTheta; l_rtm++) {
+      ip_rtm = 3*t + nComp * (l_rtm * istep_rtm_t + mdx_p); 
+      in_rtm = 3*t + nComp * (l_rtm * istep_rtm_t + mdx_n); 
+
+      idx = idx_p_rtm + l_rtm; 
+      reg0 = __dmul_rd(gauss_norm, weight_rtm[l_rtm]);
+      reg1 = __dmul_rd(reg0, P_rtm[idx]);
+      reg2 = __dmul_rd(reg0, dP_rtm[idx]);
+      reg4 = __dmul_rd(P_rtm[idx], (double) order);
+      reg1 = __dmul_rd(asin_theta_1d_rtm[l_rtm], reg0);
+      reg3 = __dmul_rd(reg4, reg1);         
+
+      sp1 += __dmul_rd(vr_rtm[ip_rtm-3], reg1);
+      reg0 = __dmul_rd(vr_rtm[ip_rtm-2], reg2);
+      reg4 =  -1 * __dmul_rd(vr_rtm[in_rtm-1], reg3);
+      reg3 *= vr_rtm[in_rtm-2];
+      reg2 *= vr_rtm[ip_rtm-1];
+      sp2 += __dadd_rd(reg0, reg4); 
+      sp3 -= __dadd_rd(reg3, reg2); 
+    }
+    idx_sp += 3; 
+
+    sp_rlm[idx_sp-3] += __dmul_rd(__dmul_rd(r_1d_rlm_r, r_1d_rlm_r), sp1);
+    sp_rlm[idx_sp-2] += __dmul_rd(r_1d_rlm_r, sp2);
+    sp_rlm[idx_sp-1] += __dmul_rd(r_1d_rlm_r, sp3);
+
+  }
+}
+*/
 
 __global__
 void transF_vec_smem_schmidt(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants) {
@@ -349,6 +637,37 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
 //  transF_vec<<<grid, block, 0, streams[0]>>> (1, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 
   dim3 block2(constants.nidx_rtm[0],constants.nvector,1);
+
+  static Timer transF_vec("Fwd vector transform with cached schmidt");
+  transF_vec.startTimer();
   transF_vec_smem_schmidt<<<grid, block2, sizeof(double)*nTheta*2, streams[0]>>> (1, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+  cudaDevSync();
+  transF_vec.endTimer();
+  transF_vec.echoTimer(cudaPerformance.getLog());  
+//  cudaPerformance.registerTimer(&transF_vec);
+
+  static Timer transF_s("Fwd scalar transform with cached schmidt");
+  transF_s.startTimer();
   transF_scalar<<<grid, block, 0, streams[1]>>> (1, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
+  cudaDevSync();
+  transF_s.endTimer();
+  transF_s.echoTimer(cudaPerformance.getLog());  
+ // cudaPerformance.registerTimer(&transF_s);
+
+  
+  //ToDo: Ponder this: if not exact, what are the consequences?
+  //Extremeley important! *****
+  int itemsPerThread = constants.nidx_rtm[1]/blockSize; 
+  //std::assert(itemsPerThread*blockSize == constants.nidx_rtm[1]);
+  //std::assert(minGridSize <= constants.nidx_rlm[1]);
+  std::assert (5 != 6);
+  static Timer transF_reduce("Fwd Vector Reduction Algorithm");
+  transF_reduce.startTimer();
+  transF_vec_reduction< itemsPerThread, 
+						cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
+						double><<<constants.nidx_rlm[1], blockSize>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+  cudaDevSync();
+  transF_reduce.endTimer();
+  transF_reduce.echoTimer(cudaPerformance.getLog());  
+  //cudaPerformance.registerTimer(&transF_reduce);
 }
