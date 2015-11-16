@@ -10,14 +10,17 @@ class Timer {
     double totalTime;
     std::string description;  
     unsigned int counter;
-
+    bool registerStatus;
   public:
     Timer();
-    Timer(std::string descrition);
+    Timer(std::string whatAmI);
     void startTimer();
     void endTimer();
 	void echoTimer(std::ofstream *log);
 	void echoHeader(std::ofstream *log);
-//	Timer& operator=( const Timer &clock);
+    bool getRegistrationStatus() {return registerStatus;}
+    void setRegistrationStatus() {registerStatus=true;}
+	Timer& operator=( const Timer &clock);
     std::string whatAmI();
+	void setWhatAmI(std::string context);
 };

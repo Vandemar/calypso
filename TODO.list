@@ -1,0 +1,5 @@
+* Running CMAKE with -DTIME=ON creates a circular dependency
+* The method of including library CUDA UnBound needs to be generalized. 
+  Currently it is set as a absolute path for the cig-projector
+* During the initilization where the legendre transform algorithm is begin chosen, the suite of cuda algorithms needs to be part of that set. Each transform can be tested on physical space set to 0 followed by fwd_tran and then a bwd trans. Or vice Versa.
+* Testing convergence of the transform by taking a function of r, setting the poloidal to f(r) and diff_radial+poloidal to derivative of f(r) with respect to r and toroidal to arbitrary constant. Followed by a fwd trans and then a bwd trans. Re-examine those values for those specific modes. This will tell you of the methods convergence. A Fortran example is in the "Initial Field"

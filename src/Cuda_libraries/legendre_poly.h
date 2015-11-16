@@ -10,6 +10,8 @@
 //#include <mpi.h>
 //#include <cub/block/block_reduce.cuh>
 #include "/home/harsha_lv/Downloads/cub-1.4.1/cub/block/block_reduce.cuh"
+#include "/home/harsha_lv/Downloads/cub-1.4.1/cub/util_allocator.cuh"
+#include "/home/harsha_lv/Downloads/cub-1.4.1/cub/device/device_reduce.cuh"
 
 #include "logger.h"
 
@@ -29,6 +31,22 @@ extern int nComp;
 // For the kernel transF_vec_reduction
 extern int minGridSize;
 extern int blockSize; 
+
+extern cudaDeviceProp prop;
+extern size_t devMemory;
+
+//CUDA Unbound - part of device reduce example
+extern bool g_verbose; // Whether to display input/output to console
+extern cub::CachingDeviceAllocator g_allocator; // Caching allocator for device memory
+
+/*
+ *   Set of variables that take advantage of constant memory.
+ *     Access to constant memory is faster than access to global memory.
+ *       */
+
+// **** lstack_rlm resides in global memory as well as constant memory
+// ** Pick one or the other
+extern __constant__ int lstack_rlm_cmem[1000];
 
 // Fortran function calls
 extern "C" {
@@ -54,7 +72,8 @@ typedef struct {
 
 //Cublas library/Cuda variables
 extern cudaError_t error;
-extern cudaStream_t streams[2];
+extern cudaStream_t *streams;
+extern int nStreams;
 
 //Helper functions, declared but not defined. 
 
@@ -76,6 +95,8 @@ typedef struct
   double *dP_jl;
   double *p_rtm, *dP_rtm;
   double *leg_poly_m_eq_l;
+  //cudaUnbound dev reduction 
+  double *reductionSpace;
 } Parameters_s;
 
 typedef struct
@@ -190,7 +211,7 @@ __global__ void transB_dydt_smem_a_r(int *lstack_rlm, int *idx_gl_1d_rlm_j, doub
 __global__ void transB_dydt_read_only_data(int const* __restrict__ lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double const* __restrict__ P_jl, double const* __restrict__ dP_jl);
 __global__ void transB_dydp(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *asin_theta_1d_rtm, const Geometry_c constants);
 __global__ void transB_dydp_smem_schmidt_more_threads(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *asin_theta_1d_rtm, const Geometry_c constants);
-__global__ void transB_scalar(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl);
+__global__ void transB_scalar(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl, const Geometry_c constants);
 __global__ void transB_scalar_opt_mem_access(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl);
 __global__ void transB_scalar_block_mp_rlm(int const* __restrict__ lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double const* __restrict__ P_jl);
 __global__ void transB_scalar_block_mp_rlm_smem(int const* __restrict__ lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl);
@@ -208,8 +229,51 @@ void transformMode(int shellId, int modeId);
 __global__ void integrateFirstComponent(bool init, int shellId, int modeId, int vectorId, int order, int mdx_n, int mdx_p, double r_1d_rlm_r_sq, double gauss_norm, double *g_colat_rtm, double *weight_rtm, double *asin_theta_1d_rtm, double const* __restrict__ P_rtm, double *sp_rlm, double const* __restrict__ input, double *output, const Geometry_c constants);
 
 //Reduction using CUDA UnBound
-template< int ITEMS_PER_THREAD, 
-		  cub::BlockReduceAlgorithm ALGORITHM, typename T>
+template< 
+      int THREADS_PER_BLOCK,
+      int ITEMS_PER_THREAD,
+      cub::BlockReduceAlgorithm ALGORITHM,
+      typename T> 
 __global__ void transF_vec_reduction(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants);
+
+template <
+    int     THREADS_PER_BLOCK,
+    int			ITEMS_PER_THREAD,
+    cub::BlockReduceAlgorithm ALGORITHM,
+    typename T>
+__global__
+void transF_scalar_reduction(double *vr_rtm, double *sp_rlm, double *weight_rtm, int *mdx_p_rlm_rtm, double *P_rtm, double *g_sph_rlm_7, const Geometry_c constants); 
+
+template <
+    int     THREADS_PER_BLOCK,
+    cub::BlockReduceAlgorithm ALGORITHM,
+    typename T>
+__global__
+void transB_dydt_reduction(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *g_sph_rlm, double *a_r_1d_rlm_r, double *P_jl, double *dP_jl, const Geometry_c constants);
+
+__global__ void transB_dydt_old(double *g_sph_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *dP_jl, const Geometry_c constants);
+
+template <
+    int     THREADS_PER_BLOCK,
+    cub::BlockReduceAlgorithm ALGORITHM,
+    typename T>
+__global__
+void transB_dydp_reduction(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *asin_theta_1d_rtm, const Geometry_c constants);
+
+template <
+    int     THREADS_PER_BLOCK,
+    cub::BlockReduceAlgorithm ALGORITHM,
+    typename T>
+__global__
+void transB_scalar_reduction(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl, const Geometry_c constants);
+
 //A unary function whose input is the block size and returns the size in bytes of shared memory needed by a block
 size_t computeSharedMemory(int blockSize);
+void registerAllTimers();
+
+//Reduction over device
+__global__ void prepateInput(int nVec, int k_rlm, int j_rlm, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, 
+                                      int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, 
+                                      double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, double *input, 
+                                      const Geometry_c constants);
+

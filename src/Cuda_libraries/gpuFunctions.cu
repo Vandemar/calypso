@@ -7,43 +7,84 @@
 #include "math_functions.h"
 #include "math_constants.h"
 
+cudaDeviceProp prop;
 Parameters_s deviceInput;
 Debug h_debug, d_debug;
 Geometry_c constants;
 References hostData;
-Logger cudaPerformance("Metrics.log", 3);
+Logger cudaPerformance("Metrics.log", 7);
+
+Timer movData2GPU;
+Timer movData2Host;
 
 int countFT=0, countBT=0;
 int minGridSize=0, blockSize=0;
+size_t devMemory = 0;
+cudaStream_t *streams;
+int nStreams=0;
 
-cudaStream_t streams[2];
+// **** lstack_rlm resides in global memory as well as constant memory
+// ** Pick one or the other
+__constant__ int lstack_rlm_cmem[1000];
+
+//CUDA Unbound - part of device reduce example
+bool g_verbose = false; // Whether to display input/output to console
+cub::CachingDeviceAllocator g_allocator(true); // Caching allocator for device memory
 
 void initialize_gpu_() {
+
+//Required because, Template parameters need to be evaluated by compile time
+//#if __cplusplus > 199711L
+//   #error c++ 11 standard or greater REQUIRED!
+// #endif
+
   int device_count, device;
+  cudaDeviceReset();
   // Gets number of GPU devices
   cudaGetDeviceCount(&device_count);
   cudaGetDevice(&device);
-  cudaDeviceReset();
-  #if defined(CUDA_TIMINGS)
-    cudaProfilerStart();
-  #endif
+  cudaGetDeviceProperties(&prop, device);
+  devMemory = prop.totalGlobalMem;
   cudaErrorCheck(cudaDeviceSetCacheConfig(cudaFuncCachePreferShared));
   cudaErrorCheck(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte));
   cudaFree(0);
+  #if defined(CUDA_TIMINGS)
+    cudaProfilerStart();
+  #endif
+  //registerAllTimers();
+  movData2GPU.setWhatAmI("Transfer data from Host to GPU");
+  movData2Host.setWhatAmI("Transfer data from GPU to Host");
+
+  cudaPerformance.registerTimer(&movData2GPU);
+  cudaPerformance.registerTimer(&movData2Host);
 }
+
+void registerAllTimers() {
+  //If more timers are registered than the amount specified in the constructor of logger, program will 
+  // segfault.
+  // TO BE DEPRECATED
+  // Timer transBwdVec("Bwd Vector Transform");
+  // Timer transBwdScalar("Bwd Scalar Transform");
+  // Timer transF_s("Fwd scalar transform with cached schmidt");
+  // Timer transF_reduce("Fwd Vector Reduction Algorithm");
+  // cudaPerformance.registerTimer(&transBwdVec);
+  // cudaPerformance.registerTimer(&transBwdScalar);
+  // cudaPerformance.registerTimer(&transF_reduce);
+  // cudaPerformance.registerTimer(&transF_s);
+} 
 
 void set_constants_(int *nnod_rtp, int *nnod_rtm, int *nnod_rlm, int nidx_rtm[], int nidx_rlm[], int istep_rtm[], int istep_rlm[], int *trunc_lvl, int *np_smp) {
 
   cudaPerformance.recordProblemDescription(*trunc_lvl, nidx_rtm[0], nidx_rtm[1]);
-  cudaPerformance.echoProblemDescription();
 
   //For best occupancy
-  cudaErrorCheck(cudaOccupancyMaxPotentialBlockSizeVariableSMem(&minGridSize,
+  /*cudaErrorCheck(cudaOccupancyMaxPotentialBlockSizeVariableSMem(&minGridSize,
 																&blockSize,
 																transF_vec_reduction< 10, 
 																  cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
 																		double>, 
 																computeSharedMemory));  
+  */
 
   for(int i=0; i<3; i++) { 
     constants.nidx_rtm[i] = nidx_rtm[i];
@@ -62,8 +103,6 @@ void set_constants_(int *nnod_rtp, int *nnod_rtm, int *nnod_rlm, int nidx_rtm[],
 
   constants.np_smp = *np_smp;
 
-  for(unsigned int i=0; i<2; i++)       
-    cudaErrorCheck(cudaStreamCreate(&streams[i]));
 
 
 //  #if defined(CUDA_TIMINGS)
@@ -89,40 +128,76 @@ void setptrs_(int *idx_gl_1d_rlm_j) {
 
 
 void initialize_leg_trans_gpu_() {
+  size_t memAllocation = 0;
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.g_colat_rtm), constants.nidx_rtm[1]*sizeof(double))); 
+  memAllocation -= constants.nidx_rtm[1]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.a_r_1d_rlm_r), constants.nidx_rtm[0]*sizeof(double))); 
+  memAllocation -= constants.nidx_rtm[0]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.asin_theta_1d_rtm), constants.nidx_rtm[1]*sizeof(double))); 
+  memAllocation -= constants.nidx_rtm[1]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.lstack_rlm), (constants.nidx_rtm[2]+1)*sizeof(int))); 
+  
+  memAllocation -= (constants.nidx_rtm[2]+1)*sizeof(int);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.g_sph_rlm), constants.nidx_rlm[1]*sizeof(double))); 
+  memAllocation -= constants.nidx_rlm[1]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.g_sph_rlm_7), constants.nidx_rlm[1]*sizeof(double))); 
+  memAllocation -= constants.nidx_rlm[1]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.idx_gl_1d_rlm_j), constants.nidx_rlm[1]*3*sizeof(int))); 
+  memAllocation -= constants.nidx_rlm[1]*3*sizeof(int);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.radius_1d_rlm_r), constants.nidx_rtm[0]*sizeof(double))); 
+  memAllocation -= constants.nidx_rtm[0]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.weight_rtm), constants.nidx_rtm[1]*sizeof(double))); 
+  memAllocation -= constants.nidx_rtm[1]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.mdx_p_rlm_rtm), constants.nidx_rlm[1]*sizeof(int))); 
+  memAllocation -= constants.nidx_rlm[1]*sizeof(int);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.mdx_n_rlm_rtm), constants.nidx_rlm[1]*sizeof(int))); 
+  memAllocation -= constants.nidx_rlm[1]*sizeof(int);
 //#ifndef CUDA_OTF
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.p_jl), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
+  memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_jl), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
+  memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
 //#endif
 //OTF has yet to be implemented for fwd transform
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.p_rtm), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
+  memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_rtm), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
+  memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
 
 // Question, is loading from DRAM faster than actual calculation? 
 //since m=0,l=0 is the trivial case, this is excluded. All others i.e, m=1 upto t_lvl (inclusive) is allocated 
-  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.leg_poly_m_eq_l), sizeof(double)*(constants.t_lvl)));
-  dim3 grid(1,1,1);
-  dim3 block(64,1,1);
-  set_leg_poly_m_ep_l<<<grid,block,0>>>(deviceInput.leg_poly_m_eq_l);
+//  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.leg_poly_m_eq_l), sizeof(double)*(constants.t_lvl)));
+//  memAllocation += sizeof(double)*(constants.t_lvl);
+
+// A variable amount of memory
+  // dim3 grid(1,1,1);
+  // dim3 block(64,1,1);
+  // set_leg_poly_m_ep_l<<<grid,block,0>>>(deviceInput.leg_poly_m_eq_l);
   
   #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
     h_debug.P_smdt = (double*) malloc (sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]);
     h_debug.dP_smdt = (double*) malloc (sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]);
     cudaErrorCheck(cudaMalloc((void**)&(d_debug.P_smdt), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
+    memAllocation -= sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1];
     cudaErrorCheck(cudaMemset(d_debug.P_smdt, -1, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
     cudaErrorCheck(cudaMalloc((void**)&(d_debug.dP_smdt), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
+    memAllocation -= sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1];
     cudaErrorCheck(cudaMemset(d_debug.dP_smdt, -1, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
   #endif
+
+  unsigned int numberOfDoubles = memAllocation/(sizeof(double));
+  unsigned int numberOfReductionSpaces = min(numberOfDoubles/(constants.nidx_rtm[1]*3), constants.nidx_rtm[1]);
+  //streams = (cudaStream_t*) malloc (sizeof(cudaStream_t) * numberOfReductionSpaces);
+  streams = new cudaStream_t[numberOfReductionSpaces];
+  for(int i=0; i<numberOfReductionSpaces; i++) {
+    cudaErrorCheck(cudaStreamCreate(&streams[i]));
+    nStreams++;
+  }
+  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.reductionSpace), sizeof(double)*numberOfReductionSpaces*3*constants.nidx_rtm[1]));
+  memAllocation -= sizeof(double)*numberOfReductionSpaces*3*constants.nidx_rtm[1];
+  if(memAllocation <= 0) {
+    exit(-1);
+  }
 }
  
 void alloc_space_on_gpu_(int *ncmp, int *nvector, int *nscalar) {
@@ -166,6 +241,7 @@ void memcpy_h2d_(int *lstack_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, dou
   cudaErrorCheck(cudaMemcpy(deviceInput.asin_theta_1d_rtm, asin_theta_1d_rtm, constants.nidx_rtm[1]*sizeof(double), cudaMemcpyHostToDevice)); 
   cudaErrorCheck(cudaMemcpy(deviceInput.g_colat_rtm, g_colat_rtm, constants.nidx_rtm[1]*sizeof(double), cudaMemcpyHostToDevice)); 
   cudaErrorCheck(cudaMemcpy(deviceInput.lstack_rlm, lstack_rlm, (constants.nidx_rtm[2]+1)*sizeof(int), cudaMemcpyHostToDevice)); 
+ cudaErrorCheck(cudaMemcpyToSymbol(lstack_rlm_cmem, lstack_rlm, sizeof(int) * (constants.nidx_rtm[2]+1), 0, cudaMemcpyHostToDevice));
   cudaErrorCheck(cudaMemcpy(deviceInput.g_sph_rlm, g_sph_rlm, constants.nidx_rlm[1]*sizeof(double), cudaMemcpyHostToDevice)); 
   cudaErrorCheck(cudaMemcpy(deviceInput.g_sph_rlm_7, g_sph_rlm_7, constants.nidx_rlm[1]*sizeof(double), cudaMemcpyHostToDevice)); 
   cudaErrorCheck(cudaMemcpy(deviceInput.idx_gl_1d_rlm_j, idx_gl_1d_rlm_j, constants.nidx_rlm[1]*3*sizeof(int), cudaMemcpyHostToDevice)); 
@@ -205,24 +281,33 @@ void cpy_spec_dev2host_4_debug_() {
 
 void set_spectrum_data_(double *sp_rlm, int *ncomp) {
   // Current: 0 = vr_rtm, 1 = sp_rlm, 2 = g_sph_rlm 
+  movData2GPU.startTimer();
   cudaErrorCheck(cudaMemcpy(deviceInput.sp_rlm, sp_rlm, constants.nnod_rlm*(*ncomp)*sizeof(double), cudaMemcpyHostToDevice)); 
+  movData2GPU.endTimer();
 }
 
 void set_physical_data_(double *vr_rtm, int *ncomp) {
   // Current: 0 = vr_rtm, 1 = sp_rlm, 2 = g_sph_rlm 
+  movData2GPU.startTimer();
   cudaErrorCheck(cudaMemcpy(deviceInput.vr_rtm, vr_rtm, constants.nnod_rtm*(*ncomp)*sizeof(double), cudaMemcpyHostToDevice)); 
+  movData2GPU.endTimer();
 }
 
 void retrieve_spectrum_data_(double *sp_rlm, int *ncomp) {
   // Current: 0 = vr_rtm, 1 = sp_rlm, 2 = g_sph_rlm 
+  movData2Host.startTimer();
   cudaErrorCheck(cudaMemcpy(sp_rlm, deviceInput.sp_rlm, constants.nnod_rlm*(*ncomp)*sizeof(double), cudaMemcpyDeviceToHost)); 
+  movData2Host.endTimer();
 }
 
 void retrieve_physical_data_(double *vr_rtm, int *ncomp) {
   // Current: 0 = vr_rtm, 1 = sp_rlm, 2 = g_sph_rlm 
+  movData2Host.startTimer();
   cudaErrorCheck(cudaMemcpy(vr_rtm, deviceInput.vr_rtm, constants.nnod_rtm*(*ncomp)*sizeof(double), cudaMemcpyDeviceToHost)); 
+  movData2Host.endTimer();
 }
 
+//How should these functions be timed?
 void clear_spectrum_data_(int *ncomp) {
   cudaErrorCheck(cudaMemset(deviceInput.sp_rlm, 0, constants.nnod_rlm*(*ncomp)*sizeof(double)));
 }
@@ -252,6 +337,7 @@ void deAllocMemOnGPU() {
     cudaErrorCheck(cudaFree(deviceInput.p_rtm));
     cudaErrorCheck(cudaFree(deviceInput.dP_rtm));
   #endif
+    cudaErrorCheck(cudaFree(deviceInput.reductionSpace));    
 }
 
 void deAllocDebugMem() {
@@ -272,14 +358,14 @@ void deAllocDebugMem() {
 void cleangpu_() {
   deAllocMemOnGPU();
   deAllocDebugMem();
-  for(int i=0; i<2; i++)
+  for(int i=0; i<nStreams; i++)
     cudaErrorCheck(cudaStreamDestroy(streams[i]));
   #if defined(CUDA_TIMINGS)
     cudaProfilerStop();
   #endif
 
   //Write performance metrics
-  //cudaPerformance.echoAllClocks();
+  cudaPerformance.echoAllClocks();
   cudaPerformance.closeStream();
 }
 

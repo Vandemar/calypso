@@ -1,4 +1,5 @@
 #include <limits>
+#include <iomanip>
  
 #include "timer.h"
 
@@ -9,6 +10,7 @@ Timer::Timer() {
   maxTime = std::numeric_limits<double>::min();
   totalTime = 0;
   counter = 0;
+  registerStatus = false;
 }
 
 Timer::Timer(std::string whatAmI) {
@@ -18,7 +20,8 @@ Timer::Timer(std::string whatAmI) {
   maxTime = std::numeric_limits<double>::min();
   totalTime = 0;
   counter = 0;
-  description = whatAmI;
+  description.assign(whatAmI);
+  registerStatus = false;
 }
  
 void Timer::startTimer() {
@@ -35,25 +38,30 @@ void Timer::endTimer() {
 }
 
 void Timer::echoHeader(std::ofstream *log) {
-  *log << "\t" << "Minimum Time (s)" << "\tMaximum Time (s)" << "\tAverage Time (s)" << std::endl; 
+  *log << std::setw(25) << " " << "\t" << "Minimum Time (s)" << "\tMaximum Time (s)" << "\tAverage Time (s)" << std::endl; 
 }
  
 void Timer::echoTimer(std::ofstream *log) {
-  *log << this->whatAmI() << "\t" << minTime << "\t" << maxTime << "\t" << totalTime/counter << std::endl;  
+  *log << std::setw(25) << this->whatAmI() << "\t" << minTime << "\t" << maxTime << "\t" << totalTime/counter << std::endl;  
 }
 
 std::string Timer::whatAmI() {
   return description;
 } 
 
-/*Timer& Timer::operator=( const Timer &clock) {
+void Timer::setWhatAmI(std::string context) {
+  description.assign(context);  
+} 
+
+Timer& Timer::operator=( const Timer &clock) {
   this->startTime = clock.startTime;
   this->endTime = clock.endTime;
   this->minTime = clock.minTime;
   this->maxTime = clock.maxTime;
   this->totalTime = clock.totalTime;
   this->counter = clock.counter;
-  this->description = clock.description;
+  this->registerStatus = clock.registerStatus;
+  this->description.assign(clock.description);
   return *this;
 }
-*/
+

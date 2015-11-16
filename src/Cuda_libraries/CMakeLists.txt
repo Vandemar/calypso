@@ -1,8 +1,7 @@
 FILE(GLOB CUDA_SRC_FILES *.cu)
 #FILE(GLOB FORTRAN_CUDA_INTERFACE *.f90)
 
-set(GENCODE "-gencode=arch=compute_35,code=sm_35")
-
+set(GENCODE "-gencode=arch=compute_35,code=compute_35")
 # The option dc enables dynamic parallelism in cuda
 
 # debug options
@@ -15,8 +14,9 @@ set(CUDA_BUILD_CUBIN OFF)
 #The following command links the compiled code. 
 #This is necessary when using dynamic parallelism for one. 
 #Dynamic Parallelism essentially allows you to nest kernel calls. 
+# Also allows extern __constant__ declerations
 
-set(CUDA_SEPARABLE_COMPILATION OFF)
+set(CUDA_SEPARABLE_COMPILATION ON)
 set(CUDA_VERBOSE_BUILD ON)
 set(CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
 

@@ -68,8 +68,7 @@ IF (CUDA_FOUND)
   #These environment variables are specific to the supercomputers accessed
   # through xsede.
   #SET (CUDA_LIBRARY_FLAGS "-I${CUDA_INCLUDE_DIRS};-L${CUDA_TOOLKIT_ROOT_DIR}/lib64;-lcudart;-lcublas;-lcuda;-lcublas_device;-lcudadevrt")
-  SET (CUDA_LIBRARY_FLAGS
-"-L${CUDA_TOOLKIT_ROOT_DIR}/lib64;-lcuda;-lcudart;-lstdc++")
+  SET (CUDA_LIBRARY_FLAGS "-L${CUDA_TOOLKIT_ROOT_DIR}/lib64;-lstdc++;-lcudart;-lcudadevrt")
 ENDIF(CUDA_FOUND)
 
 #Need to set this s.t when user specifies Degug mode, these flags are set
