@@ -45,7 +45,7 @@ void initialize_gpu_() {
   cudaGetDevice(&device);
   cudaGetDeviceProperties(&prop, device);
   devMemory = prop.totalGlobalMem;
-  cudaErrorCheck(cudaDeviceSetCacheConfig(cudaFuncCachePreferShared));
+  cudaErrorCheck(cudaDeviceSetCacheConfig(cudaFuncCachePreferEqual));
   cudaErrorCheck(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte));
   cudaFree(0);
   #if defined(CUDA_TIMINGS)

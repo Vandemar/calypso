@@ -131,6 +131,13 @@
           write(tmpchara,'(a)') trim(leg_test_loop)
 #ifdef CUDA
         else if(id_legendre_transfer .eq. iflag_leg_cuda) then
+!         output the results of the convergence test 
+          call cpy_spec_dev2host_4_debug()
+          call output_spectral_data_cuda(my_rank) 
+          call sph_back_trans_4_MHD
+          call sph_forward_trans_4_MHD
+          call cpy_spec_dev2host_4_debug()
+          call output_spectral_data_cuda(my_rank) 
           write(tmpchara,'(a)') trim(leg_cuda)
 #endif
         end if
@@ -372,7 +379,7 @@
         write(*,*) '12: elapsed by matrix prod. with symm.: ',          &
      &            etime_trans(iflag_leg_sym_matprod)
 #ifdef CUDA
-        write(*,*) '13: elapsed by CUDA On-the-fly comp.  : ',          &
+        write(*,*) '13: elapsed by CUDA : ',          &
      &            etime_trans(iflag_leg_cuda)
 #endif
 !

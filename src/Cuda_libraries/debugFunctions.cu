@@ -29,7 +29,7 @@ void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *d
       schmidt << "order\t degree\t P_smdt \t P_smdt_cuda\t dP_smdt \t dP_smdt_cuda\n";
     #endif
 
-    double error=0, eps = 1E-7;
+    double err1=0, err2 = 0, err3 = 0, err4 = 0, err5 = 0, eps = 1E-7;
     int jst, jed, ip_rtm, in_rtm, pos, m, l, mn_rlm;
     int j;
   #if defined(CUDA_OTF) 
@@ -49,8 +49,8 @@ void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *d
    schmidt.close();
   #endif
 
-   field_vec << "shell\tmeridian\tmp_rlm\tvector_index\t vr_rtm_cu[0]\t vr_rtm[0] \t vr_rtm_cu[1] \t vr_rtm[1] \t vr_rtm_cu[2] \t vr_rtm[2] \t vr_rtm_n_cu[0] \t vr_rtm_n[0] \t vr_Rtm_n_cu[1] \t vr_rtm_n[1]\n";
-   field_slr << "shell\tmeridian\tmp_rlm\tscalar\t vr_rtm_cu[0]\t vr_rtm[0] \n";
+   field_vec << "\tshell\tmeridian\tmp_rlm\tvector_index\t vr_rtm_cu[0]\t vr_rtm[0] \t vr_rtm_cu[1] \t vr_rtm[1] \t vr_rtm_cu[2] \t vr_rtm[2] \t vr_rtm_n_cu[0] \t vr_rtm_n[0] \t vr_Rtm_n_cu[1] \t vr_rtm_n[1]\n";
+   field_slr << "\tshell\tmeridian\tmp_rlm\tscalar\t vr_rtm_cu[0]\t vr_rtm[0] \n";
 
     for(int k=1; k<=constants.nidx_rtm[0]; k++) {
       for(int mp_rlm=1; mp_rlm<=constants.nidx_rtm[2]; mp_rlm++) {
@@ -61,13 +61,19 @@ void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *d
           for(int nd=1; nd<=constants.nvector; nd++) {
             ip_rtm = 3*nd + constants.ncomp*((l_rtm-1)*constants.istep_rtm[1] + (k-1)*constants.istep_rtm[0] + (mp_rlm-1)*constants.istep_rtm[2]) - 1;
             in_rtm = 3*nd + constants.ncomp*((l_rtm-1)*constants.istep_rtm[1] + (k-1)*constants.istep_rtm[0] + (mn_rlm-1)*constants.istep_rtm[2]) - 1;
-            if(h_debug.vr_rtm[ip_rtm] != vr_rtm[ip_rtm] || h_debug.vr_rtm[ip_rtm-1] != vr_rtm[ip_rtm-1] || h_debug.vr_rtm[ip_rtm-2] != vr_rtm[ip_rtm-2] || h_debug.vr_rtm[in_rtm] != vr_rtm[in_rtm] || h_debug.vr_rtm[in_rtm-1] != vr_rtm[in_rtm-1])
-              field_vec << k << "\t" << l_rtm << "\t" << mp_rlm << "\t" << nd << "\t"<< h_debug.vr_rtm[ip_rtm-2] << "\t" << vr_rtm[ip_rtm-2] << "\t" << h_debug.vr_rtm[ip_rtm-1] << "\t" << vr_rtm[ip_rtm-1] << "\t" << h_debug.vr_rtm[ip_rtm] << "\t" << vr_rtm[ip_rtm] << "\t" << h_debug.vr_rtm[in_rtm-1] << "\t" << vr_rtm[in_rtm-1] <<"\t" << h_debug.vr_rtm[in_rtm] << "\t" << vr_rtm[in_rtm] << "\n";
+            err1 = abs(h_debug.vr_rtm[ip_rtm] - vr_rtm[ip_rtm]);
+            err2 = abs(h_debug.vr_rtm[ip_rtm-1] - vr_rtm[ip_rtm-1]);
+            err3 = abs(h_debug.vr_rtm[ip_rtm-2] - vr_rtm[ip_rtm-2]);
+            err4 = abs(h_debug.vr_rtm[in_rtm] - vr_rtm[in_rtm]);
+            err5 = abs(h_debug.vr_rtm[in_rtm-1] - vr_rtm[in_rtm-1]);
+            if( err1 >= eps || err2 >= eps || err3 >= eps || err4 >= eps || err5 >= eps)
+              field_vec << "\t" << k << "\t" << l_rtm << "\t" << mp_rlm << "\t" << nd << "\t"<< h_debug.vr_rtm[ip_rtm-2] << "\t" << vr_rtm[ip_rtm-2] << "\t" << h_debug.vr_rtm[ip_rtm-1] << "\t" << vr_rtm[ip_rtm-1] << "\t" << h_debug.vr_rtm[ip_rtm] << "\t" << vr_rtm[ip_rtm] << "\t" << h_debug.vr_rtm[in_rtm-1] << "\t" << vr_rtm[in_rtm-1] <<"\t" << h_debug.vr_rtm[in_rtm] << "\t" << vr_rtm[in_rtm] << "\n";
           }
           for(int nd=1; nd<=constants.nscalar; nd++) {
             ip_rtm = nd + 3*constants.nvector + constants.ncomp*((l_rtm-1)*constants.istep_rtm[1] + (k-1)*constants.istep_rtm[0] + (mp_rlm-1)*constants.istep_rtm[2]) - 1;
-            if(h_debug.vr_rtm[ip_rtm] != vr_rtm[ip_rtm])
-              field_slr << k << "\t" << l_rtm << "\t" << mp_rlm << "\t" << nd << "\t" << h_debug.vr_rtm[ip_rtm] << "\t" << vr_rtm[ip_rtm] << "\n";
+            err1 = abs(h_debug.vr_rtm[ip_rtm] - vr_rtm[ip_rtm]);
+            if(err1 >= eps)
+              field_slr << "\t" << k << "\t" << l_rtm << "\t" << mp_rlm << "\t" << nd << "\t" << h_debug.vr_rtm[ip_rtm] << "\t" << vr_rtm[ip_rtm] << "\n";
           }
         }
       }
@@ -102,30 +108,84 @@ void check_fwd_trans_cuda_(int *my_rank, double *sp_rlm) {
     schmidt.close();
   #endif
 
-    double error=0, eps = 1E-7;
-    int jst, jed, ip_rtm, in_rtm, pos, m, l, mn_rlm;
+    double err1=0, err2 = 0, err3 = 0, eps = 1E-7;
+    int jst, jed, ip_rtm, in_rtm, pos, order, degree, mn_rlm;
     int i_rlm;
-   spec_vec<< "shell\tmode\tvector_index\t sp_rlm_cu[0]\t sp_rlm[0] \t sp_rlm_cu[1] \t sp_rlm[1] \t sp_rlm_cu[2] \t sp_rlm[2] \n";
-   spec_slr<< "shell\tmode\tvector_index\t sp_rlm_cu[0]\t sp_rlm[0]\n";
+   spec_vec<< "\tshell\tmode\tdegree\torder\tvector_index\t sp_rlm_cu[0]\t sp_rlm[0] \t sp_rlm_cu[1] \t sp_rlm[1] \t sp_rlm_cu[2] \t sp_rlm[2] \n";
+   spec_slr<< "\tshell\tmode\tdegree\torder\tvector_index\t sp_rlm_cu[0]\t sp_rlm[0]\n";
 
     for(int k=1; k<=constants.nidx_rtm[0]; k++) {
       for(int j_rlm=1; j_rlm <=constants.nidx_rlm[1]; j_rlm++) {
+        degree = h_debug.idx_gl_1d_rlm_j[ constants.nidx_rlm[1] + (j_rlm-1)];
+        order = h_debug.idx_gl_1d_rlm_j[ constants.nidx_rlm[1] * 2 + (j_rlm-1)];
         for(int nd=1; nd<=constants.nvector; nd++) {
           i_rlm = 3*nd + constants.ncomp*((j_rlm-1)*constants.istep_rlm[1] + (k-1)*constants.istep_rlm[0]) - 1;
-            if(h_debug.sp_rlm[i_rlm] != sp_rlm[i_rlm] || h_debug.sp_rlm[i_rlm-1] != sp_rlm[i_rlm-1] || h_debug.sp_rlm[i_rlm-2] != sp_rlm[i_rlm-2] ) {
-              spec_vec << k << "\t" << j_rlm << "\t" << nd << "\t"<< h_debug.sp_rlm[i_rlm-2] << "\t" << sp_rlm[i_rlm-2] << "\t" << h_debug.sp_rlm[i_rlm-1] << "\t" << sp_rlm[i_rlm-1] << "\t" << h_debug.sp_rlm[i_rlm] << "\t" << sp_rlm[i_rlm] << "\n";
-          }
+            err1 = abs(h_debug.sp_rlm[i_rlm] - sp_rlm[i_rlm]);
+            err2 = abs(h_debug.sp_rlm[i_rlm-1] - sp_rlm[i_rlm-1]);
+            err3 = abs(h_debug.sp_rlm[i_rlm-2] - sp_rlm[i_rlm-2]);
+            if( err1 >= eps || err2 >= eps || err3 >= eps)
+              spec_vec << "\t" << k << "\t" << j_rlm << "\t" << degree << "\t" << order << "\t"<< nd << "\t"<< h_debug.sp_rlm[i_rlm-2] << "\t" << sp_rlm[i_rlm-2] << "\t" << h_debug.sp_rlm[i_rlm-1] << "\t" << sp_rlm[i_rlm-1] << "\t" << h_debug.sp_rlm[i_rlm] << "\t" << sp_rlm[i_rlm] << "\n";
         }
         for(int nd=1; nd<=constants.nscalar; nd++) {
           i_rlm = nd + 3*constants.nvector + constants.ncomp*((j_rlm-1)*constants.istep_rlm[1] + (k-1)*constants.istep_rlm[0]) - 1;
-          if(h_debug.sp_rlm[i_rlm] != sp_rlm[i_rlm]) {
-            spec_slr<< k << "\t" << j_rlm << "\t" << nd << "\t" << h_debug.sp_rlm[i_rlm] << "\t" << sp_rlm[i_rlm] << "\n";
-          }
+          err1 = abs(h_debug.sp_rlm[i_rlm] - sp_rlm[i_rlm]);
+          if( err1 >= eps) 
+            spec_slr<< "\t" << k << "\t" << j_rlm << "\t" << degree << "\t" << order << "\t" << nd << "\t" << h_debug.sp_rlm[i_rlm] << "\t" << sp_rlm[i_rlm] << "\n";
         }
       }
     }
-   
+
    spec_vec.close();
    spec_slr.close();
   #endif
+}
+
+
+void output_spectral_data_cuda_(int *my_rank) {
+    static bool init = true;
+    std::string fName;
+    std::stringstream sc;
+    sc << *my_rank;
+    std::ofstream spec_vec, spec_slr;
+    if(init) {
+      fName = "convergenceBeforeSHT_4Vector_PID_" + sc.str() + ".log";
+    }
+    else
+      fName = "convergenceAfterSHT_4Vector_PID_" + sc.str() + ".log";
+    spec_vec.open(fName.c_str());
+
+    if(init) {
+      fName = "convergenceBeforeSHT_4Scalar_PID_" + sc.str() + ".log";
+      init = false;
+    }
+    else
+      fName = "convergenceAfterSHT_4Scalar_PID_" + sc.str() + ".log";
+
+    spec_slr.open(fName.c_str());
+      
+    double error=0, eps = 1E-7;
+    int jst, jed, ip_rtm, in_rtm, pos, m, l, mn_rlm;
+    int i_rlm;
+    spec_vec<< "\t shell\tmode\tdegree\torder\tvectorID\t sp_rlm_cu[0]\t sp_rlm_cu[1] \t sp_rlm_cu[2] \n";
+    spec_slr<< "\t shell\tmode\tdegree\torder\tvectorID\t sp_rlm_cu[0]\n";
+
+    int order, degree;
+
+    double err1=0, err2=0, err3=0;
+    for(int k=1; k<=constants.nidx_rtm[0]; k++) {
+      for(int j_rlm=1; j_rlm <=constants.nidx_rlm[1]; j_rlm++) {
+        degree = h_debug.idx_gl_1d_rlm_j[ constants.nidx_rlm[1] + (j_rlm-1)];
+        order = h_debug.idx_gl_1d_rlm_j[ constants.nidx_rlm[1] * 2 + (j_rlm-1)];
+        for(int nd=1; nd<=constants.nvector; nd++) {
+          i_rlm = 3*nd + constants.ncomp*((j_rlm-1)*constants.istep_rlm[1] + (k-1)*constants.istep_rlm[0]) - 1;
+          spec_vec << "\t" << k << "\t" << j_rlm << "\t" << degree << "\t" << order << "\t" << nd << "\t"<< h_debug.sp_rlm[i_rlm-2] << "\t" << h_debug.sp_rlm[i_rlm-1] << "\t" << h_debug.sp_rlm[i_rlm] << "\n";
+        }
+        for(int nd=1; nd<=constants.nscalar; nd++) {
+          i_rlm = nd + 3*constants.nvector + constants.ncomp*((j_rlm-1)*constants.istep_rlm[1] + (k-1)*constants.istep_rlm[0]) - 1;
+          spec_slr<< "\t" << k << "\t" << j_rlm << "\t" << degree << "\t" << order << "\t" << nd << "\t" << h_debug.sp_rlm[i_rlm] << "\n";
+        }
+      }
+    }
+   spec_vec.close();
+   spec_slr.close();
 }

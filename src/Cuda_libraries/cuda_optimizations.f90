@@ -12,6 +12,7 @@
         use m_schmidt_poly_on_rtm
         use schmidt_fix_m
         use m_work_4_sph_trans
+        use m_work_4_sph_trans_spin
         use spherical_SRs_N
         use const_coriolis_sph_rlm
         use legendre_bwd_trans_org
@@ -21,12 +22,7 @@
         contains
       
         subroutine calypso_gpu_init
-          use init_sph_MHD_elapsed_label
-
-          call set_sph_MHD_elapsed_label
-          call start_eleps_time(62)
           call initialize_gpu
-          call end_eleps_time(62)
         end subroutine calypso_gpu_init
        
         subroutine set_mem_4_gpu
@@ -80,4 +76,47 @@
         subroutine sync_device 
           call cuda_sync_device
         end subroutine sync_device 
+
+        subroutine init_test_case(ncomp, nvector, nscalar)
+        integer(kind=kint), intent(in) :: ncomp, nvector, nscalar
+
+        integer(kind=kint) :: k, j, idx, l,m, j_rlm
+        integer(kind=kint) :: nd 
+! To view values using debugger
+        real(kind=kreal) :: reg
+
+        l = idx_gl_1d_rlm_j(1,2)
+        m = idx_gl_1d_rlm_j(1,3)
+
+!Find mode address 
+        do j_rlm = 1, nidx_rlm(2)
+          if ( idx_gl_1d_rlm_j(j_rlm,2) .eq. l) then
+            if ( idx_gl_1d_rlm_j(j_rlm,3) .eq. m) then
+              j = j_rlm
+              exit
+            end if  
+          end if  
+        end do
+
+        if ( j .gt. 0) then
+          do k = 1, nidx_rlm(1)
+            do nd = 1, nvector
+              idx = 3*nd + ncomp * ((j-1) * istep_rlm(2)                &
+     &                         + (k-1) * istep_rlm(1))
+              reg = radius_1d_rlm_r(k)
+              sp_rlm_wk(idx-2) = cos(radius_1d_rlm_r(k))
+              reg = sp_rlm_wk(idx-2)
+              sp_rlm_wk(idx-1) = -1 * sin(radius_1d_rlm_r(k))
+              reg = sp_rlm_wk(idx-1)
+              sp_rlm_wk(idx)   = 1 
+              reg = sp_rlm_wk(idx)
+            end do
+            do nd = 1, nscalar
+              idx = nd + 3*nvector + ncomp * ((j-1) * istep_rlm(2)      &
+     &                         + (k-1) * istep_rlm(1))
+              sp_rlm_wk(idx)      = 1
+            end do
+          end do
+        end if
+        end subroutine init_test_case
       end module cuda_optimizations 
