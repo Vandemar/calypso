@@ -168,6 +168,8 @@ void output_spectral_data_cuda_(int *my_rank);
 void cleangpu_();
 void cuda_sync_device_();
 
+void find_optimal_algorithm_(int *ncomp, int *nvector, int *nscalar);
+
   __device__ double nextLGP_m_eq0(int l, double x, double p_0, double p_1);
   __device__ double nextDp_m_eq_0(int l, double lgp_mp);
   __device__ double nextDp_m_eq_1(int l, double p_mn_l, double p_pn_l);
@@ -182,6 +184,8 @@ void cuda_sync_device_();
 // Shortcuts and Simplifications
   void cudaDevSync();
 //
+
+enum transFwd_vector{originaAlgorithm, reductionAlgorithm}; 
 
 /*__global__ void transB_m_l_eq0_ver1D(int mp_rlm, int jst, int jed, double *vr_rtm,  double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *P_smdt, double *dP_smdt, double *g_sph_rlm, double *asin_theta_1d_rtm); 
 __global__ void transB_m_l_eq1_ver1D( int mp_rlm,  int jst,  int jed, int order, int degree, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r,     double *g_colat_rtm, double *P_smdt, double *dP_smdt, double *g_sph_rlm, double *asin_theta_1d_rtm);

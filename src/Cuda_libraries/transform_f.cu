@@ -5,6 +5,52 @@
 #include "math_functions.h"
 #include "math_constants.h"
 
+void find_optimal_algorithm_(int *ncomp, int *nvector, int *nscalar) {
+  constants.ncomp = *ncomp;
+  constants.nscalar= *nscalar;
+  constants.nvector = *nvector;
+
+  dim3 grid(constants.nidx_rlm[1],constants.nidx_rtm[0],1);
+  dim3 block(constants.nvector, constants.nidx_rtm[0],1);
+
+  transFwd_vector algorithm;
+//{originaAlgorithm, reductionAlgorithm};
+
+  Timer wallClock;
+  double elapsedTime=0;
+
+  cout << "\tCUDA Fwd vector transform: \n"; 
+
+  for(int i=0; i<2; i++) {
+    wallClock.startTimer();
+    switch (i) {
+    case originaAlgorithm:
+      cout << "\t\t static original Algorthim: ";
+	  transF_vec<<<grid, block, 0>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+      break;
+    case reductionAlgorithm:
+	  cout << "\t\t static reduction Algorithm: ";
+	  transF_vec_reduction< 9, 1,
+                  cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
+                      double>
+            <<<grid, 9>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, 
+						deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
+						deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, 
+						deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
+                        deviceInput.g_colat_rtm, deviceInput.p_rtm, 
+						deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, 
+						deviceInput.asin_theta_1d_rtm, 
+                        constants);
+  
+	  break;
+    }
+    cudaErrorCheck(cudaDeviceSynchronize());
+    wallClock.endTimer();
+    elapsedTime = wallClock.elapsedTime();
+    cout << elapsedTime << "\n"; 
+  }
+}
+
 __global__
 void transF_vec(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants) {
   //dim3 grid(constants.nidx_rlm[1],1,1);

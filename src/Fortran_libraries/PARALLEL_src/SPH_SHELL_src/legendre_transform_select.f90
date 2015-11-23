@@ -267,6 +267,7 @@
         call init_test_case(ncomp, nvector, nscalar)
         call cpy_spectrum_dat_2_gpu(ncomp, sp_rlm_wk)
 #endif
+        call find_optimal_algorithm(ncomp, nvector, nscalar)
 #endif
       else
         call allocate_work_sph_trans(ncomp)
@@ -309,6 +310,7 @@
       else if(id_legendre_transfer .eq. iflag_leg_cuda) then
 !    Remove all data on GPU if, another method is chosen
 !        call calypso_gpu_finalize
+        call deallocate_work_sph_trans
 #endif
       else
         call deallocate_work_sph_trans
