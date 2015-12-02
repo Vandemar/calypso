@@ -87,7 +87,7 @@
 
       call start_eleps_time(58) 
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
-      call cpy_field_dev2host_4_debug
+      call cpy_field_dev2host_4_debug(ncomp)
 #else 
       call cpy_physical_dat_from_gpu(ncomp, vr_rtm_wk(1))
 #endif
@@ -157,7 +157,7 @@
 
         call start_eleps_time(65) 
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
-         call cpy_spec_dev2host_4_debug
+         call cpy_spec_dev2host_4_debug(ncomp)
 #elif defined(CUDA_OPTIMIZED)
         call cpy_spectrum_dat_from_gpu(ncomp, sp_rlm_wk(1))
 #endif

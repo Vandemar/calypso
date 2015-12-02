@@ -66,13 +66,13 @@ void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *d
             err3 = abs(h_debug.vr_rtm[ip_rtm-2] - vr_rtm[ip_rtm-2]);
             err4 = abs(h_debug.vr_rtm[in_rtm] - vr_rtm[in_rtm]);
             err5 = abs(h_debug.vr_rtm[in_rtm-1] - vr_rtm[in_rtm-1]);
-            if( err1 >= eps || err2 >= eps || err3 >= eps || err4 >= eps || err5 >= eps)
+//            if( err1 >= eps || err2 >= eps || err3 >= eps || err4 >= eps || err5 >= eps)
               field_vec << "\t" << k << "\t" << l_rtm << "\t" << mp_rlm << "\t" << nd << "\t"<< h_debug.vr_rtm[ip_rtm-2] << "\t" << vr_rtm[ip_rtm-2] << "\t" << h_debug.vr_rtm[ip_rtm-1] << "\t" << vr_rtm[ip_rtm-1] << "\t" << h_debug.vr_rtm[ip_rtm] << "\t" << vr_rtm[ip_rtm] << "\t" << h_debug.vr_rtm[in_rtm-1] << "\t" << vr_rtm[in_rtm-1] <<"\t" << h_debug.vr_rtm[in_rtm] << "\t" << vr_rtm[in_rtm] << "\n";
           }
           for(int nd=1; nd<=constants.nscalar; nd++) {
             ip_rtm = nd + 3*constants.nvector + constants.ncomp*((l_rtm-1)*constants.istep_rtm[1] + (k-1)*constants.istep_rtm[0] + (mp_rlm-1)*constants.istep_rtm[2]) - 1;
             err1 = abs(h_debug.vr_rtm[ip_rtm] - vr_rtm[ip_rtm]);
-            if(err1 >= eps)
+  //          if(err1 >= eps)
               field_slr << "\t" << k << "\t" << l_rtm << "\t" << mp_rlm << "\t" << nd << "\t" << h_debug.vr_rtm[ip_rtm] << "\t" << vr_rtm[ip_rtm] << "\n";
           }
         }
@@ -123,13 +123,13 @@ void check_fwd_trans_cuda_(int *my_rank, double *sp_rlm) {
             err1 = abs(h_debug.sp_rlm[i_rlm] - sp_rlm[i_rlm]);
             err2 = abs(h_debug.sp_rlm[i_rlm-1] - sp_rlm[i_rlm-1]);
             err3 = abs(h_debug.sp_rlm[i_rlm-2] - sp_rlm[i_rlm-2]);
-            if( err1 >= eps || err2 >= eps || err3 >= eps)
+   //         if( err1 >= eps || err2 >= eps || err3 >= eps)
               spec_vec << "\t" << k << "\t" << j_rlm << "\t" << degree << "\t" << order << "\t"<< nd << "\t"<< h_debug.sp_rlm[i_rlm-2] << "\t" << sp_rlm[i_rlm-2] << "\t" << h_debug.sp_rlm[i_rlm-1] << "\t" << sp_rlm[i_rlm-1] << "\t" << h_debug.sp_rlm[i_rlm] << "\t" << sp_rlm[i_rlm] << "\n";
         }
         for(int nd=1; nd<=constants.nscalar; nd++) {
           i_rlm = nd + 3*constants.nvector + constants.ncomp*((j_rlm-1)*constants.istep_rlm[1] + (k-1)*constants.istep_rlm[0]) - 1;
           err1 = abs(h_debug.sp_rlm[i_rlm] - sp_rlm[i_rlm]);
-          if( err1 >= eps) 
+    //      if( err1 >= eps) 
             spec_slr<< "\t" << k << "\t" << j_rlm << "\t" << degree << "\t" << order << "\t" << nd << "\t" << h_debug.sp_rlm[i_rlm] << "\t" << sp_rlm[i_rlm] << "\n";
         }
       }
@@ -141,7 +141,7 @@ void check_fwd_trans_cuda_(int *my_rank, double *sp_rlm) {
 }
 
 
-void output_spectral_data_cuda_(int *my_rank) {
+void output_spectral_data_cuda_(int *my_rank, int *ncomp, int *nvector, int *nscalar) {
     static bool init = true;
     std::string fName;
     std::stringstream sc;
@@ -176,12 +176,12 @@ void output_spectral_data_cuda_(int *my_rank) {
       for(int j_rlm=1; j_rlm <=constants.nidx_rlm[1]; j_rlm++) {
         degree = h_debug.idx_gl_1d_rlm_j[ constants.nidx_rlm[1] + (j_rlm-1)];
         order = h_debug.idx_gl_1d_rlm_j[ constants.nidx_rlm[1] * 2 + (j_rlm-1)];
-        for(int nd=1; nd<=constants.nvector; nd++) {
-          i_rlm = 3*nd + constants.ncomp*((j_rlm-1)*constants.istep_rlm[1] + (k-1)*constants.istep_rlm[0]) - 1;
+        for(int nd=1; nd<=(*nvector); nd++) {
+          i_rlm = 3*nd + (*ncomp)*((j_rlm-1)*constants.istep_rlm[1] + (k-1)*constants.istep_rlm[0]) - 1;
           spec_vec << "\t" << k << "\t" << j_rlm << "\t" << degree << "\t" << order << "\t" << nd << "\t"<< h_debug.sp_rlm[i_rlm-2] << "\t" << h_debug.sp_rlm[i_rlm-1] << "\t" << h_debug.sp_rlm[i_rlm] << "\n";
         }
-        for(int nd=1; nd<=constants.nscalar; nd++) {
-          i_rlm = nd + 3*constants.nvector + constants.ncomp*((j_rlm-1)*constants.istep_rlm[1] + (k-1)*constants.istep_rlm[0]) - 1;
+        for(int nd=1; nd<= (*nscalar); nd++) {
+          i_rlm = nd + 3*(*nvector) + (*ncomp)*((j_rlm-1)*constants.istep_rlm[1] + (k-1)*constants.istep_rlm[0]) - 1;
           spec_slr<< "\t" << k << "\t" << j_rlm << "\t" << degree << "\t" << order << "\t" << nd << "\t" << h_debug.sp_rlm[i_rlm] << "\n";
         }
       }

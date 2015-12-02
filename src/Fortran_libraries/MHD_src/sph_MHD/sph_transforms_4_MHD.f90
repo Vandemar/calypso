@@ -76,14 +76,29 @@
       call allocate_snap_trans_rtp
       call allocate_tmp_trans_rtp
 !
+#ifdef CUDA
+!    Setting MHD model parameters on the GPU
+      if(iflag_debug .gt. 0) write(*,*) 'GPU_SPH_initialize_MHD'
+          call set_constants(nnod_rtp, nnod_rtm, nnod_rlm, nidx_rtm(1), &
+     &                      nidx_rlm(1), istep_rtm(1), istep_rlm(1),    &
+     &                      l_truncation, np_smp)
+      call start_eleps_time(55)
+      call alloc_space_on_gpu                                        &
+     &    (ncomp_sph_trans, nvector_sph_trans, nscalar_sph_trans)
+      call end_eleps_time(55)
+
+#endif
+
       if (iflag_debug.eq.1) write(*,*) 'initialize_legendre_trans'
       call initialize_legendre_trans
+
 #ifdef CUDA
       call start_eleps_time(56)
       call initialize_leg_trans_gpu
       call set_mem_4_gpu
       call end_eleps_time(56)
 #endif
+
       call init_fourier_transform_4_MHD(ncomp_sph_trans,                &
      &    ncomp_rtp_2_rj, ncomp_rj_2_rtp)
 !
@@ -101,6 +116,15 @@
       call sel_init_legendre_trans                                      &
      &    (ncomp_sph_trans, nvector_sph_trans, nscalar_sph_trans)
 !
+#ifdef CUDA
+      if(my_rank .eq. 0) write(*,*)                                     &
+     &                'Testing convergence for ', id_legendre_transfer
+
+      call init_test_case
+      call sph_back_trans_4_MHD
+      call cal_heatflux_4_test 
+      call sph_forward_trans_4_MHD
+#endif
 !
       if(my_rank .ne. 0) return
         if     (id_legendre_transfer .eq. iflag_leg_orginal_loop) then
@@ -131,13 +155,6 @@
           write(tmpchara,'(a)') trim(leg_test_loop)
 #ifdef CUDA
         else if(id_legendre_transfer .eq. iflag_leg_cuda) then
-!         output the results of the convergence test 
-          call cpy_spec_dev2host_4_debug()
-          call output_spectral_data_cuda(my_rank) 
-          call sph_back_trans_4_MHD
-          call sph_forward_trans_4_MHD
-          call cpy_spec_dev2host_4_debug()
-          call output_spectral_data_cuda(my_rank) 
           write(tmpchara,'(a)') trim(leg_cuda)
 #endif
         end if

@@ -77,46 +77,47 @@
           call cuda_sync_device
         end subroutine sync_device 
 
-        subroutine init_test_case(ncomp, nvector, nscalar)
-        integer(kind=kint), intent(in) :: ncomp, nvector, nscalar
+        subroutine init_test_case
 
-        integer(kind=kint) :: k, j, idx, l,m, j_rlm
-        integer(kind=kint) :: nd 
+        use m_sph_spectr_data
+        use m_sph_phys_address
+
+        integer(kind=kint) :: k, j,l,m
+        integer(kind=kint) :: inod 
+       
 ! To view values using debugger
         real(kind=kreal) :: reg
 
-        l = idx_gl_1d_rlm_j(1,2)
-        m = idx_gl_1d_rlm_j(1,3)
-
 !Find mode address 
-        do j_rlm = 1, nidx_rlm(2)
-          if ( idx_gl_1d_rlm_j(j_rlm,2) .eq. l) then
-            if ( idx_gl_1d_rlm_j(j_rlm,3) .eq. m) then
-              j = j_rlm
-              exit
-            end if  
-          end if  
-        end do
+        l = idx_gl_1d_rj_j(1,2)
+        m = idx_gl_1d_rj_j(1,3)
+        j = idx_gl_1d_rj_j(1,1)
 
         if ( j .gt. 0) then
-          do k = 1, nidx_rlm(1)
-            do nd = 1, nvector
-              idx = 3*nd + ncomp * ((j-1) * istep_rlm(2)                &
-     &                         + (k-1) * istep_rlm(1))
-              reg = radius_1d_rlm_r(k)
-              sp_rlm_wk(idx-2) = cos(radius_1d_rlm_r(k))
-              reg = sp_rlm_wk(idx-2)
-              sp_rlm_wk(idx-1) = -1 * sin(radius_1d_rlm_r(k))
-              reg = sp_rlm_wk(idx-1)
-              sp_rlm_wk(idx)   = 1 
-              reg = sp_rlm_wk(idx)
-            end do
-            do nd = 1, nscalar
-              idx = nd + 3*nvector + ncomp * ((j-1) * istep_rlm(2)      &
-     &                         + (k-1) * istep_rlm(1))
-              sp_rlm_wk(idx)      = 1
-            end do
-          end do
-        end if
-        end subroutine init_test_case
+          do k = nlayer_ICB, nlayer_CMB
+              inod = local_sph_data_address(k,j)
+              d_rj(inod, ipol%i_velo) = cos(radius_1d_rlm_r(k))
+       !       write(*,*) d_rj(inod, ipol%i_velo) 
+              d_rj(inod, idpdr%i_velo) = -1 * sin(radius_1d_rlm_r(k))
+       !       write(*,*) d_rj(inod, idpdr%i_velo) 
+              d_rj(inod, itor%i_velo) = 1
+       !       write(*,*) d_rj(inod, itor%i_velo) 
+              d_rj(inod, ipol%i_temp) = 1 
+      !        write(*,*) d_rj(inod, ipol%i_temp) 
+         end do
+       end if
+       end subroutine init_test_case
+  
+       subroutine cal_heatflux_4_test
+       use m_addresses_trans_sph_MHD 
+       use const_wz_coriolis_rtp
+       use cal_products_smp
+
+      if( (f_trns%i_h_flux*iflag_t_evo_4_temp) .gt. 0) then
+        call cal_vec_scalar_prod_w_coef_smp(np_smp, nnod_rtp,           &
+     &    inod_rtp_smp_stack, coef_temp, fld_rtp(1,b_trns%i_velo),      &
+     &    fld_rtp(1,b_trns%i_temp), frc_rtp(1,f_trns%i_h_flux) )
+      end if
+       end subroutine cal_heatflux_4_test
+       
       end module cuda_optimizations 

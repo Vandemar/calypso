@@ -252,21 +252,10 @@
         call alloc_leg_vec_test(nvector, nscalar)
 #ifdef CUDA
       else if(id_legendre_transfer .eq. iflag_leg_cuda) then
-!Sets ncomp, nvector, and nscalar on GPU
+! Host data
         call start_eleps_time(62)
         call allocate_work_sph_trans(ncomp)
         call end_eleps_time(62)
-!
-        call start_eleps_time(55)
-        call alloc_space_on_gpu(ncomp, nvector, nscalar)
-        call end_eleps_time(55)
-
-#ifdef CUDA_DEBUG
-        if(my_rank .eq. 0) write(*,*)                                   &
-     &                'Testing convergence for ', id_legendre_transfer
-        call init_test_case(ncomp, nvector, nscalar)
-        call cpy_spectrum_dat_2_gpu(ncomp, sp_rlm_wk)
-#endif
 #endif
       else
         call allocate_work_sph_trans(ncomp)
@@ -307,6 +296,7 @@
         call dealloc_leg_vec_test
 #ifdef CUDA
       else if(id_legendre_transfer .eq. iflag_leg_cuda) then
+        call deallocate_work_sph_trans
 !    Remove all data on GPU if, another method is chosen
 !        call calypso_gpu_finalize
 #endif

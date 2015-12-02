@@ -187,17 +187,18 @@ void initialize_leg_trans_gpu_() {
 
   unsigned int numberOfDoubles = memAllocation/(sizeof(double));
   unsigned int numberOfReductionSpaces = min(numberOfDoubles/(constants.nidx_rtm[1]*3), constants.nidx_rtm[1]);
-  //streams = (cudaStream_t*) malloc (sizeof(cudaStream_t) * numberOfReductionSpaces);
+  //streams = (cudaStream_t*) malloc (sizeof(cudaStream_t) * numberOfReductionSpaces)
+  numberOfReductionSpaces=2;
   streams = new cudaStream_t[numberOfReductionSpaces];
   for(int i=0; i<numberOfReductionSpaces; i++) {
     cudaErrorCheck(cudaStreamCreate(&streams[i]));
     nStreams++;
   }
-  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.reductionSpace), sizeof(double)*numberOfReductionSpaces*3*constants.nidx_rtm[1]));
-  memAllocation -= sizeof(double)*numberOfReductionSpaces*3*constants.nidx_rtm[1];
-  if(memAllocation <= 0) {
-    exit(-1);
-  }
+//  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.reductionSpace), sizeof(double)*numberOfReductionSpaces*3*constants.nidx_rtm[1]));
+//  memAllocation -= sizeof(double)*numberOfReductionSpaces*3*constants.nidx_rtm[1];
+//  if(memAllocation <= 0) {
+//    exit(-1);
+//  }
 }
  
 void alloc_space_on_gpu_(int *ncmp, int *nvector, int *nscalar) {
@@ -261,21 +262,21 @@ void cpy_schmidt_2_gpu_(double *P_jl, double *dP_jl, double *P_rtm, double *dP_r
     cudaErrorCheck(cudaMemcpy(deviceInput.dP_rtm, dP_rtm, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyHostToDevice));
 }
  
-void cpy_field_dev2host_4_debug_() {
+void cpy_field_dev2host_4_debug_(int *ncomp) {
   #if defined(CUDA_OTF)
     cudaErrorCheck(cudaMemcpy(h_debug.P_smdt, d_debug.P_smdt, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyDeviceToHost)); 
     cudaErrorCheck(cudaMemcpy(h_debug.dP_smdt, d_debug.dP_smdt, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyDeviceToHost)); 
   #endif
-  cudaErrorCheck(cudaMemcpy(h_debug.vr_rtm, deviceInput.vr_rtm, constants.nnod_rtm*constants.ncomp*sizeof(double), cudaMemcpyDeviceToHost)); 
+  cudaErrorCheck(cudaMemcpy(h_debug.vr_rtm, deviceInput.vr_rtm, constants.nnod_rtm*(*ncomp)*sizeof(double), cudaMemcpyDeviceToHost)); 
 //  cudaErrorCheck(cudaMemcpy(d_data->g_sph_rlm, h_data->g_sph_rlm, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyDeviceToHost)); 
 }
 
-void cpy_spec_dev2host_4_debug_() {
+void cpy_spec_dev2host_4_debug_(int *ncomp) {
   #if defined(CUDA_OTF)
     cudaErrorCheck(cudaMemcpy(h_debug.P_smdt, d_debug.P_smdt, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyDeviceToHost)); 
     cudaErrorCheck(cudaMemcpy(h_debug.dP_smdt, d_debug.dP_smdt, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyDeviceToHost)); 
   #endif
-  cudaErrorCheck(cudaMemcpy(h_debug.sp_rlm, deviceInput.sp_rlm, constants.nnod_rlm*constants.ncomp*sizeof(double), cudaMemcpyDeviceToHost)); 
+  cudaErrorCheck(cudaMemcpy(h_debug.sp_rlm, deviceInput.sp_rlm, constants.nnod_rlm*(*ncomp)*sizeof(double), cudaMemcpyDeviceToHost)); 
 //  cudaErrorCheck(cudaMemcpy(d_data->g_sph_rlm, h_data->g_sph_rlm, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyDeviceToHost)); 
 }
 

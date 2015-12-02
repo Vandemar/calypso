@@ -151,6 +151,7 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   constants.nscalar = *nscalar;
 
   dim3 grid(nTheta, constants.nidx_rtm[2]);
+  dim3 block(*nvector, constants.nidx_rtm[0]);
 
   //The number of threads is an arbitrary value that will vary the amount of thread divergence, the amount of work per thread, and in turn the time efficiency. 
 
@@ -161,8 +162,8 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
                       cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                       double>
                 <<<grid, 32>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.g_sph_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);*/
-  
-  transB_dydt<<<grid, nShells>>> (deviceInput.g_sph_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
+    
+  transB_dydt<<<grid, block, 0, streams[0]>>> (deviceInput.g_sph_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
   cudaDevSync();
   transBwdVec_dy_dt.endTimer();
 
@@ -174,7 +175,7 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
                       double>
                 <<<grid, 32>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);*/
 
-  transB_dydp<<<grid, nShells>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);
+  transB_dydp<<<grid, block, 0, streams[0]>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);
   cudaDevSync();
   transBwdVec_dy_dp.endTimer(); 
 
@@ -185,7 +186,7 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
                         cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                       double>
                 <<<grid, 32>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl, constants);*/
-  transB_scalar<<<grid, nShells>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl, constants);
+  transB_scalar<<<grid, nShells, 0, streams[1]>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl, constants);
   cudaDevSync();
   transBwdScalar.endTimer(); 
 }

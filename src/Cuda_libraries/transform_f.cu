@@ -322,15 +322,15 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   constants.nscalar= *nscalar;
   constants.nvector = *nvector;
 
-  static Timer transF_s("Fwd scalar reduction algorithm 9 threads 1 Items");
+  static Timer transF_s("Fwd scalar reduction algorithm 16 threads 3 Items");
   cudaPerformance.registerTimer(&transF_s);
   transF_s.startTimer();
-  transF_scalar_reduction <9, 1, 
+  transF_scalar_reduction< 16, 3, 
                      cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                      double>
-               <<<grid, 9>>> (deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
+               <<<grid, 16, 0, streams[0]>>> (deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
   
-  transF_scalar<<<grid, nShells, 0>>> (1, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
+ // transF_scalar<<<grid, nShells, 0>>> (1, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
   cudaDevSync();
   transF_s.endTimer();
   
@@ -339,18 +339,18 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   //int itemsPerThread = constants.nidx_rtm[1]/blockSize; 
   //std::assert(itemsPerThread*blockSize == constants.nidx_rtm[1]);
   //std::assert(minGridSize <= constants.nidx_rlm[1]);
-  static Timer transf_reduce_32_3("fwd vector reduction algorithm 64 threads/block");
+  static Timer transf_reduce_32_3("fwd vector reduction algorithm 16 threads/block");
   cudaPerformance.registerTimer(&transf_reduce_32_3);
   transf_reduce_32_3.startTimer();
-  transF_vec_reduction< 9, 1,
+  transF_vec_reduction< 16, 3,
                   cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                       double>
-            <<<grid, 9>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
+            <<<grid, 16, 0, streams[1]>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
                         deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
                         deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, 
                         constants);
 
-  transF_vec<<<grid, block, 0>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+//  transF_vec<<<grid, block, 0>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 
   cudaDevSync();
   transf_reduce_32_3.endTimer();

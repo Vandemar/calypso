@@ -58,6 +58,7 @@
       real(kind = kreal) :: Pg3_j(nidx_rlm(2))
       real(kind = kreal) :: dPdt_j(nidx_rlm(2))
       real(kind = kreal) :: Pgv_j(nidx_rlm(2))
+ 
 !
 !
 !$omp parallel do schedule(static)                                      &
@@ -76,9 +77,12 @@
               i_rlm = 3*nd + ncomp * ((j_rlm-1) * istep_rlm(2)          &
      &                              + (k_rlm-1) * istep_rlm(1))
 !
+!              write(*,*) sp_rlm(i_rlm-2)
               sp_rlm(i_rlm-2) = sp_rlm(i_rlm-2) * a2r_1d_rlm_r
               sp_rlm(i_rlm-1) = sp_rlm(i_rlm-1) * a1r_1d_rlm_r
+!              write(*,*) sp_rlm(i_rlm-1)
               sp_rlm(i_rlm  ) = sp_rlm(i_rlm  ) * a_r_1d_rlm_r(k_rlm)
+!              write(*,*) sp_rlm(i_rlm)
             end do
           end do
         end do
@@ -102,8 +106,11 @@
                   i_rlm = 3*nd + ncomp * ((j_rlm-1) * istep_rlm(2)      &
      &                                  + (k_rlm-1) * istep_rlm(1))
 !
+!                  write(*,*) sp_rlm(i_rlm-2)
                   vr1 = vr1 + sp_rlm(i_rlm-2) * Pg3_j(j_rlm)
+!                  write(*,*) sp_rlm(i_rlm-1)
                   vr2 = vr2 + sp_rlm(i_rlm-1) * dPdt_j(j_rlm)
+!                  write(*,*) sp_rlm(i_rlm)
                   vr3 = vr3 - sp_rlm(i_rlm  ) * dPdt_j(j_rlm)
                 end do
                 ip_rtm = 3*nd + ncomp*((l_rtm-1) *  istep_rtm(2)        &
