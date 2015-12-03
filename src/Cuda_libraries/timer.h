@@ -16,7 +16,7 @@ class Timer {
     Timer(std::string whatAmI);
     void startTimer();
     void endTimer();
-    double elapsedTime() {return totalTime;}
+    double elapsedTime() {return endTime-startTime;}
     void resetTimer();
 	void echoTimer(std::ofstream *log);
 	void echoHeader(std::ofstream *log);

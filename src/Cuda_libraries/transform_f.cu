@@ -13,27 +13,31 @@ void find_optimal_algorithm_(int *ncomp, int *nvector, int *nscalar) {
   dim3 grid(constants.nidx_rlm[1],constants.nidx_rtm[0],1);
   dim3 block(constants.nvector, constants.nidx_rtm[0],1);
 
-  transFwd_vector algorithm;
-//{originaAlgorithm, reductionAlgorithm};
+  fwd_vec algorithm;
 
   Timer wallClock;
   double elapsedTime=0;
 
-  cout << "\tCUDA Fwd vector transform: \n"; 
+  cout << "\tCUDA Fwd vector transform Algorithms: \n"; 
+  cout << "nVectors: " << constants.nvector << " nShells: " << constants.nidx_rtm[0] << "\n";
 
-  for(int i=0; i<2; i++) {
+  for(int i=0; i<3; i++) {
     wallClock.startTimer();
     switch (i) {
-    case originaAlgorithm:
-      cout << "\t\t static original Algorthim: ";
+    case naive:
+      cout << "\t\t Static implementation with a block size of nShells: ";
+	  transF_vec<<<grid, constants.nidx_rtm[0], 0>>> (1, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+      break;
+    case naive_w_more_threads:
+      cout << "\t\t Static implementation with a block size of nVector x nShells: ";
 	  transF_vec<<<grid, block, 0>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
       break;
-    case reductionAlgorithm:
-	  cout << "\t\t static reduction Algorithm: ";
-	  transF_vec_reduction< 9, 1,
+    case reduction:
+	  cout << "\t\t static reduction: ";
+	  transF_vec_reduction< 32, 3,
                   cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                       double>
-            <<<grid, 9>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, 
+            <<<grid, 32>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, 
 						deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
 						deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, 
 						deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
@@ -371,12 +375,12 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   static Timer transF_s("Fwd scalar reduction algorithm 9 threads 1 Items");
   cudaPerformance.registerTimer(&transF_s);
   transF_s.startTimer();
-  transF_scalar_reduction <9, 1, 
+  transF_scalar_reduction <32, 3, 
                      cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                      double>
-               <<<grid, 9>>> (deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
+               <<<grid, 32>>> (deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
   
-  transF_scalar<<<grid, nShells, 0>>> (1, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
+ // transF_scalar<<<grid, nShells, 0>>> (1, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
   cudaDevSync();
   transF_s.endTimer();
   
@@ -388,15 +392,15 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   static Timer transf_reduce_32_3("fwd vector reduction algorithm 64 threads/block");
   cudaPerformance.registerTimer(&transf_reduce_32_3);
   transf_reduce_32_3.startTimer();
-  transF_vec_reduction< 9, 1,
+  transF_vec_reduction< 32, 3,
                   cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                       double>
-            <<<grid, 9>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
+            <<<grid, 32>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
                         deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
                         deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, 
                         constants);
 
-  transF_vec<<<grid, block, 0>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+//  transF_vec<<<grid, block, 0>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 
   cudaDevSync();
   transf_reduce_32_3.endTimer();

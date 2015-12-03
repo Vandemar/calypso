@@ -131,13 +131,6 @@
           write(tmpchara,'(a)') trim(leg_test_loop)
 #ifdef CUDA
         else if(id_legendre_transfer .eq. iflag_leg_cuda) then
-!         output the results of the convergence test 
-          call cpy_spec_dev2host_4_debug()
-          call output_spectral_data_cuda(my_rank) 
-          call sph_back_trans_4_MHD
-          call sph_forward_trans_4_MHD
-          call cpy_spec_dev2host_4_debug()
-          call output_spectral_data_cuda(my_rank) 
           write(tmpchara,'(a)') trim(leg_cuda)
 #endif
         end if
