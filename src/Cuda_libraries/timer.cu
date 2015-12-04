@@ -37,6 +37,14 @@ void Timer::endTimer() {
   if ( diff > maxTime) maxTime = diff; 
 }
 
+void Timer::resetTimer() {
+  startTime = 0;
+  endTime = 0;
+  minTime = std::numeric_limits<double>::max();
+  maxTime = std::numeric_limits<double>::min();
+  totalTime = 0;
+}
+
 void Timer::echoHeader(std::ofstream *log) {
   *log << std::setw(25) << " " << "\t" << "Minimum Time (s)" << "\tMaximum Time (s)" << "\tAverage Time (s)" << std::endl; 
 }

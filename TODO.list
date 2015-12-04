@@ -5,4 +5,4 @@
 * Test convergence of the transform by taking a function of r, setting the poloidal to f(r) and diff_radial+poloidal to derivative of f(r) with respect to r and toroidal to arbitrary constant. Followed by a fwd trans and then a bwd trans. Re-examine those values for those specific modes. This will tell you of the methods convergence. A Fortran example is in the "Initial Field"
 IN FILE: 
    SPH_SHELL_src/legendre_transform_select.f90
-   function sel_finalize_legendre_trans is called during testing of loops. If a method is specified, this function is not called. If cuda kernel is tested and it isn;t the fastest one, the data needs to be removed. Implement that scenario. 
+   function sel_finalize_legendre_trans is called during testing of loops. If a method is specified, this function is not called. If cuda kernel is tested and it isn;t the fastest one, the GPU needs to be cleaned. Implement that scenario. 

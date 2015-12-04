@@ -5,6 +5,56 @@
 #include "math_functions.h"
 #include "math_constants.h"
 
+void find_optimal_algorithm_(int *ncomp, int *nvector, int *nscalar) {
+  constants.ncomp = *ncomp;
+  constants.nscalar= *nscalar;
+  constants.nvector = *nvector;
+
+  dim3 grid(constants.nidx_rlm[1],constants.nidx_rtm[0],1);
+  dim3 block(constants.nvector, constants.nidx_rtm[0],1);
+
+  fwd_vec algorithm;
+
+  Timer wallClock;
+  double elapsedTime=0;
+
+  cout << "\tCUDA Fwd vector transform Algorithms: \n"; 
+  cout << "nVectors: " << constants.nvector << " nShells: " << constants.nidx_rtm[0] << "\n";
+
+  for(int i=0; i<3; i++) {
+    wallClock.startTimer();
+    switch (i) {
+    case naive:
+      cout << "\t\t Static implementation with a block size of nShells: ";
+	  transF_vec<<<constants.nidx_rlm[1], constants.nidx_rtm[0], 0>>> (1, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+      break;
+    case naive_w_more_threads:
+      cout << "\t\t Static implementation with a block size of nVector x nShells: ";
+	  transF_vec<<<constants.nidx_rlm[1], block, 0>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+      break;
+    case reduction:
+	  cout << "\t\t Static reduction: ";
+	  transF_vec_reduction< 32, 3,
+                  cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
+                      double>
+            <<<grid, 32>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, 
+						deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
+						deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, 
+						deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
+                        deviceInput.g_colat_rtm, deviceInput.p_rtm, 
+						deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, 
+						deviceInput.asin_theta_1d_rtm, 
+                        constants);
+  
+	  break;
+    }
+    cudaErrorCheck(cudaDeviceSynchronize());
+    wallClock.endTimer();
+    elapsedTime = wallClock.elapsedTime();
+    cout << elapsedTime << "\n"; 
+  }
+}
+
 __global__
 void transF_vec(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants) {
   //dim3 grid(constants.nidx_rlm[1],1,1);
@@ -21,13 +71,7 @@ void transF_vec(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm
   int order = idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + blockIdx.x];
 //  int degree = idx_gl_1d_rlm_j[constants.nidx_rlm[1] + blockIdx.x];
   double gauss_norm = g_sph_rlm_7[blockIdx.x];
-  int nTheta = constants.nidx_rtm[1];
-  int nVector = constants.nvector;
-  int nComp = constants.ncomp;
-  int istep_rtm_t = constants.istep_rtm[1];
-  int istep_rtm_m = constants.istep_rtm[2];
-  int istep_rlm_j = constants.istep_rlm[1];
-  int istep_rlm_r = constants.istep_rlm[0];
+  double r_1d_rlm_r = radius_1d_rlm_r[k_rtm]; 
 
   int mdx_p = mdx_p_rlm_rtm[blockIdx.x] - 1;
   ip_rtm = k_rtm * constants.istep_rtm[0];
@@ -37,17 +81,18 @@ void transF_vec(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm
   mdx_p += ip_rtm;
   mdx_n += ip_rtm;
 
-  int idx;
-  int idx_p_rtm = blockIdx.x*nTheta; 
- 
-  double r_1d_rlm_r = radius_1d_rlm_r[k_rtm]; 
-  int idx_sp = nComp * ( blockIdx.x*istep_rlm_j + k_rtm*istep_rlm_r); 
 
-  for(int t=1; t<=nVector; t++) {
+  int idx;
+  int idx_p_rtm = blockIdx.x*constants.nidx_rtm[0]; 
+ 
+  int stride = constants.ncomp * constants.istep_rtm[1];
+  int idx_sp = constants.ncomp * ( blockIdx.x*constants.istep_rlm[1] + k_rtm*constants.istep_rlm[0]); 
+
+  for(int t=1; t<=constants.nvector; t++) {
+    ip_rtm = 3*t + constants.ncomp * mdx_p;
+    in_rtm = 3*t + constants.ncomp * mdx_n;
     sp1=sp2=sp3=0;
-    for(int l_rtm=0; l_rtm<nTheta; l_rtm++) {
-      ip_rtm = 3*t + nComp * (l_rtm * istep_rtm_t + mdx_p); 
-      in_rtm = 3*t + nComp * (l_rtm * istep_rtm_t + mdx_n); 
+    for(int l_rtm=0; l_rtm<constants.nidx_rtm[0]; l_rtm++) {
 
       idx = idx_p_rtm + l_rtm; 
       reg0 = __dmul_rd(gauss_norm, weight_rtm[l_rtm]);
@@ -62,6 +107,8 @@ void transF_vec(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm
       reg4 =  -1 * __dmul_rd(vr_rtm[in_rtm-1], reg3);
       reg3 *= vr_rtm[in_rtm-2];
       reg2 *= vr_rtm[ip_rtm-1];
+      ip_rtm +=  stride; 
+      in_rtm +=  stride; 
       sp2 += __dadd_rd(reg0, reg4); 
       sp3 -= __dadd_rd(reg3, reg2); 
     }
@@ -80,6 +127,7 @@ void transF_vec(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double 
   //dim3 block(nVector, constants.nidx_rtm[0],1,1);
 
   int k_rtm = threadIdx.y;
+  int idx_p_rtm = blockIdx.x*constants.nidx_rtm[1]; 
 
 // 3 for m-1, m, m+1
   unsigned int ip_rtm, in_rtm;
@@ -90,52 +138,69 @@ void transF_vec(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double 
   int order = idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + blockIdx.x];
 //  int degree = idx_gl_1d_rlm_j[constants.nidx_rlm[1] + blockIdx.x];
   double gauss_norm = g_sph_rlm_7[blockIdx.x];
-  int nTheta = constants.nidx_rtm[1];
-  int nVector = constants.nvector;
-  int nComp = constants.ncomp;
-  int istep_rtm_t = constants.istep_rtm[1];
-  int istep_rtm_m = constants.istep_rtm[2];
-  int istep_rlm_j = constants.istep_rlm[1];
-  int istep_rlm_r = constants.istep_rlm[0];
+  double p_leg = P_rtm[idx_p_rtm];
+  double dpdt = dP_rtm[idx_p_rtm];
+  double weight = weight_rtm[0];
+  double asin_t = asin_theta_1d_rtm[0];
 
   int mdx_p = mdx_p_rlm_rtm[blockIdx.x] - 1;
-  ip_rtm = k_rtm * constants.istep_rtm[0];
   int mdx_n = mdx_n_rlm_rtm[blockIdx.x] - 1;
+  ip_rtm = k_rtm * constants.istep_rtm[0] ;
   mdx_p *= constants.istep_rtm[2];
   mdx_n *= constants.istep_rtm[2];
   mdx_p += ip_rtm;
   mdx_n += ip_rtm;
 
+  ip_rtm = 3*(threadIdx.x+1) + constants.ncomp * mdx_p;
+  in_rtm = 3*(threadIdx.x+1) + constants.ncomp * mdx_n;
   int idx;
-  int idx_p_rtm = blockIdx.x*nTheta; 
  
-  double r_1d_rlm_r = radius_1d_rlm_r[k_rtm]; 
-  int idx_sp = nComp * ( blockIdx.x*istep_rlm_j + k_rtm*istep_rlm_r); 
-
+  int stride = constants.ncomp * constants.istep_rtm[1];
+  
   sp1=sp2=sp3=0;
-  for(int l_rtm=0; l_rtm<nTheta; l_rtm++) {
-    ip_rtm = 3*(threadIdx.x+1) + nComp * (l_rtm * istep_rtm_t + mdx_p); 
-    in_rtm = 3*(threadIdx.x+1) + nComp * (l_rtm * istep_rtm_t + mdx_n); 
-
-    idx = idx_p_rtm + l_rtm; 
-    reg0 = __dmul_rd(gauss_norm, weight_rtm[l_rtm]);
-    reg1 = __dmul_rd(reg0, P_rtm[idx]);
-    reg2 = __dmul_rd(reg0, dP_rtm[idx]);
-    reg4 = __dmul_rd(P_rtm[idx], (double) order);
-    reg1 = __dmul_rd(asin_theta_1d_rtm[l_rtm], reg0);
-    reg3 = __dmul_rd(reg4, reg1);         
-
+   
+  for(int l_rtm=1; l_rtm<constants.nidx_rtm[1]; l_rtm++) {
+    idx_p_rtm++; 
+    reg0 = __dmul_rd(gauss_norm, weight);
+    reg1 = __dmul_rd(reg0, p_leg);
+    reg2 = __dmul_rd(reg0, dpdt);
     sp1 += __dmul_rd(vr_rtm[ip_rtm-3], reg1);
+    reg3 = __dmul_rd(__dmul_rd(asin_t, (double) order), reg1);
+    
+    weight = weight_rtm[l_rtm];
+    asin_t = asin_theta_1d_rtm[l_rtm];
+    p_leg = P_rtm[idx_p_rtm];
+    dpdt = dP_rtm[idx_p_rtm];
+    
     reg0 = __dmul_rd(vr_rtm[ip_rtm-2], reg2);
-    reg4 =  -1 * __dmul_rd(vr_rtm[in_rtm-1], reg3);
-    reg3 *= vr_rtm[in_rtm-2];
+    reg1 =  -1 * __dmul_rd(vr_rtm[in_rtm-1], reg3);
     reg2 *= vr_rtm[ip_rtm-1];
-    sp2 += __dadd_rd(reg0, reg4); 
-    sp3 -= __dadd_rd(reg3, reg2); 
+    reg3 *= vr_rtm[in_rtm-2];
+    ip_rtm += stride;
+    in_rtm += stride;
+    sp2 += __dadd_rd(reg0, reg1); 
+    sp3 -= __dadd_rd(reg2, reg3); 
   }
-  idx_sp += 3; 
 
-  sp_rlm[idx_sp-3] += __dmul_rd(__dmul_rd(r_1d_rlm_r, r_1d_rlm_r), sp1);
+  reg0 = __dmul_rd(gauss_norm, weight);
+  double r_1d_rlm_r = radius_1d_rlm_r[k_rtm]; 
+  int idx_sp = constants.ncomp * ( blockIdx.x*constants.istep_rlm[1] + k_rtm*constants.istep_rlm[0]); 
+  reg1 = __dmul_rd(reg0, p_leg);
+  reg2 = __dmul_rd(reg0, dpdt);
+  sp1 += __dmul_rd(vr_rtm[ip_rtm-3], reg1);
+  reg3 = __dmul_rd(__dmul_rd(asin_t, (double) order), reg1);
+
+  idx_sp += 3*(threadIdx.x+1); 
+  reg0 = __dmul_rd(vr_rtm[ip_rtm-2], reg2);
+  reg1 =  -1 * __dmul_rd(vr_rtm[in_rtm-1], reg3);
+  reg2 *= vr_rtm[ip_rtm-1];
+  reg3 *= vr_rtm[in_rtm-2];
+  double r_1d_sq = __dmul_rd(r_1d_rlm_r, r_1d_rlm_r);
+  sp2 += __dadd_rd(reg0, reg1); 
+  sp3 -= __dadd_rd(reg2, reg3); 
+    
+
+  sp_rlm[idx_sp-3] += __dmul_rd(r_1d_sq, sp1);
   sp_rlm[idx_sp-2] += __dmul_rd(r_1d_rlm_r, sp2);
   sp_rlm[idx_sp-1] += __dmul_rd(r_1d_rlm_r, sp3);
 }
@@ -315,22 +380,23 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   static int nShells = constants.nidx_rtm[0];
   static int nTheta = constants.nidx_rtm[1];
 
-  dim3 grid(constants.nidx_rlm[1],nShells,1);
-  dim3 block(constants.nvector, constants.nidx_rtm[0],1);
 
   constants.ncomp = *ncomp;
   constants.nscalar= *nscalar;
   constants.nvector = *nvector;
 
-  static Timer transF_s("Fwd scalar reduction algorithm 16 threads 3 Items");
+  dim3 grid(constants.nidx_rlm[1],nShells,1);
+  dim3 block(constants.nvector, constants.nidx_rtm[0],1);
+
+  static Timer transF_s("Fwd scalar algorithm ");
   cudaPerformance.registerTimer(&transF_s);
   transF_s.startTimer();
-  transF_scalar_reduction< 16, 3, 
+  /*transF_scalar_reduction <32, 3, 
                      cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                      double>
-               <<<grid, 16, 0, streams[0]>>> (deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
-  
- // transF_scalar<<<grid, nShells, 0>>> (1, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
+               <<<grid, 32>>> (deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
+*/  
+  transF_scalar<<<constants.nidx_rlm[1], nShells, 0>>> (1, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
   cudaDevSync();
   transF_s.endTimer();
   
@@ -339,19 +405,20 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   //int itemsPerThread = constants.nidx_rtm[1]/blockSize; 
   //std::assert(itemsPerThread*blockSize == constants.nidx_rtm[1]);
   //std::assert(minGridSize <= constants.nidx_rlm[1]);
-  static Timer transf_reduce_32_3("fwd vector reduction algorithm 16 threads/block");
-  cudaPerformance.registerTimer(&transf_reduce_32_3);
-  transf_reduce_32_3.startTimer();
-  transF_vec_reduction< 16, 3,
+
+  static Timer transF_v("fwd vector algorithm ");
+  cudaPerformance.registerTimer(&transF_v);
+  transF_v.startTimer();
+/*  transF_vec_reduction< 32, 3,
                   cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                       double>
-            <<<grid, 16, 0, streams[1]>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
+            <<<grid, 32>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
                         deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
                         deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, 
                         constants);
-
-//  transF_vec<<<grid, block, 0>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+*/
+  transF_vec<<<constants.nidx_rlm[1], block, 0>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 
   cudaDevSync();
-  transf_reduce_32_3.endTimer();
+  transF_v.endTimer();
 }

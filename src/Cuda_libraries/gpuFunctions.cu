@@ -39,7 +39,6 @@ void initialize_gpu_() {
 // #endif
 
   int device_count, device;
-  cudaDeviceReset();
   // Gets number of GPU devices
   cudaGetDeviceCount(&device_count);
   cudaGetDevice(&device);
@@ -364,6 +363,8 @@ void cleangpu_() {
   #if defined(CUDA_TIMINGS)
     cudaProfilerStop();
   #endif
+
+  cudaDeviceReset();
 
   //Write performance metrics
   cudaPerformance.echoAllClocks();

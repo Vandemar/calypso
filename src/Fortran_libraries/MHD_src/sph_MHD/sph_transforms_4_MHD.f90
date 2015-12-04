@@ -108,6 +108,13 @@
       call init_sum_coriolis_rlm
 !
 !
+#ifdef CUDA
+!      if (iflag_debug.eq.1) write(*,*)                                  &
+!     &           'select_optimal_legendre_transform_algorithm 4_CUDA'
+!      call find_optimal_algorithm(ncomp_sph_trans, nvector_sph_trans,   &
+!     &           nscalar_sph_trans)
+#endif
+
       if(id_legendre_transfer .eq. iflag_leg_undefined) then
         if (iflag_debug.eq.1) write(*,*) 'select_legendre_transform'
         call select_legendre_transform
@@ -116,7 +123,7 @@
       call sel_init_legendre_trans                                      &
      &    (ncomp_sph_trans, nvector_sph_trans, nscalar_sph_trans)
 !
-#ifdef CUDA
+#ifdef CUDA_DEBUG
       if(my_rank .eq. 0) write(*,*)                                     &
      &                'Testing convergence for ', id_legendre_transfer
 
