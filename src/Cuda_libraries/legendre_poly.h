@@ -9,9 +9,9 @@
 #include <iostream>
 //#include <mpi.h>
 //#include <cub/block/block_reduce.cuh>
-#include "/home/harsha_lv/Downloads/cub-1.4.1/cub/block/block_reduce.cuh"
-#include "/home/harsha_lv/Downloads/cub-1.4.1/cub/util_allocator.cuh"
-#include "/home/harsha_lv/Downloads/cub-1.4.1/cub/device/device_reduce.cuh"
+//#include "/home/harsha_lv/Downloads/cub-1.4.1/cub/block/block_reduce.cuh"
+//#include "/home/harsha_lv/Downloads/cub-1.4.1/cub/util_allocator.cuh"
+//#include "/home/harsha_lv/Downloads/cub-1.4.1/cub/device/device_reduce.cuh"
 
 #include "logger.h"
 
@@ -36,8 +36,8 @@ extern cudaDeviceProp prop;
 extern size_t devMemory;
 
 //CUDA Unbound - part of device reduce example
-extern bool g_verbose; // Whether to display input/output to console
-extern cub::CachingDeviceAllocator g_allocator; // Caching allocator for device memory
+//extern bool g_verbose; // Whether to display input/output to console
+//extern cub::CachingDeviceAllocator g_allocator; // Caching allocator for device memory
 
 /*
  *   Set of variables that take advantage of constant memory.
@@ -185,7 +185,8 @@ void find_optimal_algorithm_(int *ncomp, int *nvector, int *nscalar);
   void cudaDevSync();
 //
 
-enum fwd_vec{naive, naive_w_more_threads, reduction}; 
+//enum fwd_vec{naive, naive_w_more_threads, reduction}; 
+enum fwd_vec{naive, naive_w_more_threads}; 
 
 /*__global__ void transB_m_l_eq0_ver1D(int mp_rlm, int jst, int jed, double *vr_rtm,  double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *P_smdt, double *dP_smdt, double *g_sph_rlm, double *asin_theta_1d_rtm); 
 __global__ void transB_m_l_eq1_ver1D( int mp_rlm,  int jst,  int jed, int order, int degree, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r,     double *g_colat_rtm, double *P_smdt, double *dP_smdt, double *g_sph_rlm, double *asin_theta_1d_rtm);
@@ -236,7 +237,7 @@ void transformMode(int shellId, int modeId);
 __global__ void integrateFirstComponent(bool init, int shellId, int modeId, int vectorId, int order, int mdx_n, int mdx_p, double r_1d_rlm_r_sq, double gauss_norm, double *g_colat_rtm, double *weight_rtm, double *asin_theta_1d_rtm, double const* __restrict__ P_rtm, double *sp_rlm, double const* __restrict__ input, double *output, const Geometry_c constants);
 
 //Reduction using CUDA UnBound
-template< 
+/*template< 
       int THREADS_PER_BLOCK,
       int ITEMS_PER_THREAD,
       cub::BlockReduceAlgorithm ALGORITHM,
@@ -251,15 +252,16 @@ template <
 __global__
 void transF_scalar_reduction(double *vr_rtm, double *sp_rlm, double *weight_rtm, int *mdx_p_rlm_rtm, double *P_rtm, double *g_sph_rlm_7, const Geometry_c constants); 
 
+
 template <
     int     THREADS_PER_BLOCK,
     cub::BlockReduceAlgorithm ALGORITHM,
     typename T>
 __global__
 void transB_dydt_reduction(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *g_sph_rlm, double *a_r_1d_rlm_r, double *P_jl, double *dP_jl, const Geometry_c constants);
-
+*/
 __global__ void transB_dydt_old(double *g_sph_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *dP_jl, const Geometry_c constants);
-
+/*
 template <
     int     THREADS_PER_BLOCK,
     cub::BlockReduceAlgorithm ALGORITHM,
@@ -273,7 +275,7 @@ template <
     typename T>
 __global__
 void transB_scalar_reduction(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl, const Geometry_c constants);
-
+*/
 //A unary function whose input is the block size and returns the size in bytes of shared memory needed by a block
 size_t computeSharedMemory(int blockSize);
 void registerAllTimers();

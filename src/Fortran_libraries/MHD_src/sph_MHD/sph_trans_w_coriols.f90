@@ -97,11 +97,20 @@
       SendRecvtime = MPI_WTIME() - START_SRtime + SendRecvtime
 !
 !
+#ifdef CUDA
+      call start_eleps_time(55)
+#else
       call start_eleps_time(24)
+#endif
       if(iflag_debug .gt. 0) write(*,*)                                 &
      &    'back_MHD_FFT_sel_from_recv', ncomp_trans, nvector, nscalar
       call back_MHD_FFT_sel_from_recv(ncomp_trans, n_WR, WR, fld_rtp)
+#ifdef CUDA
+      call end_eleps_time(55)
+#else
       call end_eleps_time(24)
+#endif
+
 !
       if(iflag_debug .gt. 0) write(*,*) 'finish_send_recv_rtm_2_rtp'
       call finish_send_recv_rtm_2_rtp
@@ -119,9 +128,17 @@
       real(kind = kreal), intent(inout) :: WS(n_WS), WR(n_WR)
 !
 !
+#ifdef CUDA
+      call start_eleps_time(56)
+#else
       call start_eleps_time(24)
+#endif
       call fwd_MHD_FFT_sel_from_recv(ncomp_trans, n_WS, frc_rtp, WS)
+#ifdef CUDA
+      call end_eleps_time(56)
+#else
       call end_eleps_time(24)
+#endif
 !
       START_SRtime= MPI_WTIME()
       call start_eleps_time(20)

@@ -155,38 +155,50 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
 
   //The number of threads is an arbitrary value that will vary the amount of thread divergence, the amount of work per thread, and in turn the time efficiency. 
 
+#ifdef CUDA_TIMINGS
   static Timer transBwdVec_dy_dt("Bwd Vector dydt Transform");
   cudaPerformance.registerTimer(&transBwdVec_dy_dt);
   transBwdVec_dy_dt.startTimer();
+#endif
   /*transB_dydt_reduction<32, 
                       cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                       double>
                 <<<grid, 32>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.g_sph_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);*/
     
   transB_dydt<<<grid, block, 0, streams[0]>>> (deviceInput.g_sph_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
+
+#ifdef CUDA_TIMINGS
   cudaDevSync();
   transBwdVec_dy_dt.endTimer();
+
+  static Timer transBwdScalar("bwd scalar transform");
+  cudaPerformance.registerTimer(&transBwdScalar);
+  transBwdScalar.startTimer(); 
+#endif
+  /*transB_scalar_reduction<32,
+                        cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
+                      double>
+                <<<grid, 32>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl, constants);*/
+  transB_scalar<<<grid, nShells, 0, streams[1]>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl, constants);
+
+#ifdef CUDA_TIMINGS
+  cudaDevSync();
+  transBwdScalar.endTimer(); 
 
   static Timer transBwdVec_dy_dp("Bwd Vector dydp Transform");
   cudaPerformance.registerTimer(&transBwdVec_dy_dp);
   transBwdVec_dy_dp.startTimer();
+#endif
   /*transB_dydp_reduction<32, 
                       cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                       double>
                 <<<grid, 32>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);*/
 
   transB_dydp<<<grid, block, 0, streams[0]>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);
+
+#ifdef CUDA_TIMINGS
   cudaDevSync();
   transBwdVec_dy_dp.endTimer(); 
+#endif
 
-  static Timer transBwdScalar("bwd scalar transform");
-  cudaPerformance.registerTimer(&transBwdScalar);
-  transBwdScalar.startTimer(); 
-  /*transB_scalar_reduction<32,
-                        cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
-                      double>
-                <<<grid, 32>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl, constants);*/
-  transB_scalar<<<grid, nShells, 0, streams[1]>>> (deviceInput.lstack_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.p_jl, constants);
-  cudaDevSync();
-  transBwdScalar.endTimer(); 
 }

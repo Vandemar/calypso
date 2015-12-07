@@ -82,21 +82,30 @@
           call set_constants(nnod_rtp, nnod_rtm, nnod_rlm, nidx_rtm(1), &
      &                      nidx_rlm(1), istep_rtm(1), istep_rlm(1),    &
      &                      l_truncation, np_smp)
-      call start_eleps_time(55)
+#if defined(CUDA_TIMINGS)
+      call start_eleps_time(66)
+#endif
       call alloc_space_on_gpu                                        &
      &    (ncomp_sph_trans, nvector_sph_trans, nscalar_sph_trans)
-      call end_eleps_time(55)
-
+      call initialize_leg_trans_gpu
+#if defined(CUDA_TIMINGS)
+      call sync_device
+      call end_eleps_time(66)
+#endif
 #endif
 
       if (iflag_debug.eq.1) write(*,*) 'initialize_legendre_trans'
       call initialize_legendre_trans
 
 #ifdef CUDA
-      call start_eleps_time(56)
-      call initialize_leg_trans_gpu
+#if defined(CUDA_TIMINGS)
+      call start_eleps_time(67)
+#endif
       call set_mem_4_gpu
-      call end_eleps_time(56)
+#if defined(CUDA_TIMINGS)
+      call sync_device
+      call end_eleps_time(67)
+#endif
 #endif
 
       call init_fourier_transform_4_MHD(ncomp_sph_trans,                &
@@ -108,12 +117,12 @@
       call init_sum_coriolis_rlm
 !
 !
-#ifdef CUDA
+!#ifdef CUDA
 !      if (iflag_debug.eq.1) write(*,*)                                  &
 !     &           'select_optimal_legendre_transform_algorithm 4_CUDA'
 !      call find_optimal_algorithm(ncomp_sph_trans, nvector_sph_trans,   &
 !     &           nscalar_sph_trans)
-#endif
+!#endif
 
       if(id_legendre_transfer .eq. iflag_leg_undefined) then
         if (iflag_debug.eq.1) write(*,*) 'select_legendre_transform'

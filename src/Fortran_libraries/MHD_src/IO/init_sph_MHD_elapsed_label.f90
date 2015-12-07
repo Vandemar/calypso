@@ -30,7 +30,10 @@
 !
 !
 #if defined(CUDA)
-      num_elapsed = 65
+      num_elapsed = 56
+#if defined(CUDA_TIMINGS)
+      num_elapsed = 67
+#endif
 #else
       num_elapsed = 54
 #endif
@@ -101,9 +104,10 @@
 !
       elapse_labels(54) = 'Communication time        '
 !
-#if defined(CUDA)
-      elapse_labels(55) = 'Mem alloc of grid & harmonic space GPU'  
-      elapse_labels(56) = 'Mem alloc+ MemCpy to GPU for leg_trans'  
+#ifdef CUDA
+      elapse_labels(55) = 'Fourier transform bwd'
+      elapse_labels(56) = 'Fourier transform fwd'
+#if defined(CUDA_TIMINGS)
       elapse_labels(57) = 'cpy sp_rlm host2dev for bwd. trans.'
       elapse_labels(58) = 'cpy vr_rtm dev2host for bwd. trans.'
       elapse_labels(59) = 'LGP bwd transform'
@@ -113,6 +117,9 @@
       elapse_labels(63) = 'initalization of GPU'
       elapse_labels(64) = 'cpy vr_rtm host2dev for fwd. trans.'
       elapse_labels(65) = 'cpy sp_rlm dev2host for fwd. trans.'
+      elapse_labels(66) = 'Mem alloc on GPU'  
+      elapse_labels(67) = 'MemCpy to GPU for leg_trans'  
+#endif
 #endif
       end subroutine set_sph_MHD_elapsed_label
 !
@@ -127,10 +134,15 @@
       do i = 3, 54
         call reset_eleps_time(i)
       end do
-#ifdef CUDA
-      do i = 57, 65
+#if defined(CUDA)
+      do i = 55,56
         call reset_eleps_time(i)
       end do
+#if defined(CUDA_TIMINGS)
+      do i = 57, 67
+        call reset_eleps_time(i)
+      end do
+#endif
 #endif
 !
       end subroutine reset_elapse_4_init_sph_mhd

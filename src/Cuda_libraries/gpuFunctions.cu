@@ -12,10 +12,13 @@ Parameters_s deviceInput;
 Debug h_debug, d_debug;
 Geometry_c constants;
 References hostData;
-Logger cudaPerformance("Metrics.log", 7);
+
+#ifdef CUDA_TIMINGS
+  Logger cudaPerformance("Metrics.log", 7);
 
 Timer movData2GPU;
 Timer movData2Host;
+#endif
 
 int countFT=0, countBT=0;
 int minGridSize=0, blockSize=0;
@@ -28,8 +31,8 @@ int nStreams=0;
 __constant__ int lstack_rlm_cmem[1000];
 
 //CUDA Unbound - part of device reduce example
-bool g_verbose = false; // Whether to display input/output to console
-cub::CachingDeviceAllocator g_allocator(true); // Caching allocator for device memory
+//bool g_verbose = false; // Whether to display input/output to console
+//cub::CachingDeviceAllocator g_allocator(true); // Caching allocator for device memory
 
 void initialize_gpu_() {
 
@@ -49,13 +52,14 @@ void initialize_gpu_() {
   cudaFree(0);
   #if defined(CUDA_TIMINGS)
     cudaProfilerStart();
-  #endif
+
   //registerAllTimers();
   movData2GPU.setWhatAmI("Transfer data from Host to GPU");
   movData2Host.setWhatAmI("Transfer data from GPU to Host");
 
   cudaPerformance.registerTimer(&movData2GPU);
   cudaPerformance.registerTimer(&movData2Host);
+  #endif
 }
 
 void registerAllTimers() {
@@ -74,7 +78,9 @@ void registerAllTimers() {
 
 void set_constants_(int *nnod_rtp, int *nnod_rtm, int *nnod_rlm, int nidx_rtm[], int nidx_rlm[], int istep_rtm[], int istep_rlm[], int *trunc_lvl, int *np_smp) {
 
+#if defined(CUDA_TIMINGS)
   cudaPerformance.recordProblemDescription(*trunc_lvl, nidx_rtm[0], nidx_rtm[1]);
+#endif
 
   //For best occupancy
   /*cudaErrorCheck(cudaOccupancyMaxPotentialBlockSizeVariableSMem(&minGridSize,
@@ -281,30 +287,22 @@ void cpy_spec_dev2host_4_debug_(int *ncomp) {
 
 void set_spectrum_data_(double *sp_rlm, int *ncomp) {
   // Current: 0 = vr_rtm, 1 = sp_rlm, 2 = g_sph_rlm 
-  movData2GPU.startTimer();
   cudaErrorCheck(cudaMemcpy(deviceInput.sp_rlm, sp_rlm, constants.nnod_rlm*(*ncomp)*sizeof(double), cudaMemcpyHostToDevice)); 
-  movData2GPU.endTimer();
 }
 
 void set_physical_data_(double *vr_rtm, int *ncomp) {
   // Current: 0 = vr_rtm, 1 = sp_rlm, 2 = g_sph_rlm 
-  movData2GPU.startTimer();
   cudaErrorCheck(cudaMemcpy(deviceInput.vr_rtm, vr_rtm, constants.nnod_rtm*(*ncomp)*sizeof(double), cudaMemcpyHostToDevice)); 
-  movData2GPU.endTimer();
 }
 
 void retrieve_spectrum_data_(double *sp_rlm, int *ncomp) {
   // Current: 0 = vr_rtm, 1 = sp_rlm, 2 = g_sph_rlm 
-  movData2Host.startTimer();
   cudaErrorCheck(cudaMemcpy(sp_rlm, deviceInput.sp_rlm, constants.nnod_rlm*(*ncomp)*sizeof(double), cudaMemcpyDeviceToHost)); 
-  movData2Host.endTimer();
 }
 
 void retrieve_physical_data_(double *vr_rtm, int *ncomp) {
   // Current: 0 = vr_rtm, 1 = sp_rlm, 2 = g_sph_rlm 
-  movData2Host.startTimer();
   cudaErrorCheck(cudaMemcpy(vr_rtm, deviceInput.vr_rtm, constants.nnod_rtm*(*ncomp)*sizeof(double), cudaMemcpyDeviceToHost)); 
-  movData2Host.endTimer();
 }
 
 //How should these functions be timed?
@@ -366,9 +364,11 @@ void cleangpu_() {
 
   cudaDeviceReset();
 
+#if defined(CUDA_TIMINGS)
   //Write performance metrics
   cudaPerformance.echoAllClocks();
   cudaPerformance.closeStream();
+#endif
 }
 
 //Fortran wrapper function
