@@ -106,16 +106,10 @@
       subroutine end_eleps_time(iflag_elps)
 !
       use calypso_mpi
-#ifdef CUDA_TIMINGS
-      use cuda_optimizations
-#endif
 !
       integer, intent(in) :: iflag_elps
 !
 !
-#ifdef CUDA_TIMINGS
-     call sync_device
-#endif
       elapsed(iflag_elps) = MPI_WTIME() - start_times(iflag_elps)       &
      &                     + elapsed(iflag_elps)
 !

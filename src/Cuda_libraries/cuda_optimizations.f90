@@ -3,8 +3,6 @@
 
       module cuda_optimizations 
         use calypso_mpi
-        use m_work_time
-        use iso_c_binding
         use m_precision
         use m_spheric_parameter
         use m_spheric_param_smp
@@ -68,9 +66,7 @@
         end subroutine cpy_physical_dat_2_gpu
 
         subroutine calypso_gpu_finalize
-          call start_eleps_time(61)
           call cleangpu
-          call end_eleps_time(61)
         end subroutine calypso_gpu_finalize
   
         subroutine sync_device 
