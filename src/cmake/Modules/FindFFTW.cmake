@@ -12,7 +12,8 @@ endif (FFTW_INCLUDES)
 
 find_path (FFTW_INCLUDES fftw3.h)
 
-find_library (FFTW_LIBRARIES NAMES fftw3)
+#TODO: Unclean. 
+find_library (FFTW_LIBRARIES NAMES fftw3 libfftw PATHS /opt/apps/intel15/mvapich2_2_1/fftw3/3.3.4/lib)
 
 # handle the QUIETLY and REQUIRED arguments and set FFTW_FOUND to TRUE if
 # all listed variables are TRUE

@@ -20,10 +20,11 @@
         contains
       
         subroutine calypso_gpu_init
-          call initialize_gpu
+          call initialize_gpu(my_rank)
         end subroutine calypso_gpu_init
        
         subroutine set_mem_4_gpu
+          
           call setPtrs(idx_gl_1d_rlm_j(1,1))  
           call cpy_schmidt_2_gpu(P_jl(1,1), dPdt_jl(1,1), P_rtm(1,1),   &
      &                           dPdt_rtm(1,1))
@@ -115,5 +116,4 @@
      &    fld_rtp(1,b_trns%i_temp), frc_rtp(1,f_trns%i_h_flux) )
       end if
        end subroutine cal_heatflux_4_test
-       
       end module cuda_optimizations 

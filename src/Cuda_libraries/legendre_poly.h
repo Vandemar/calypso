@@ -35,6 +35,8 @@ extern int blockSize;
 extern cudaDeviceProp prop;
 extern size_t devMemory;
 
+extern int my_rank;
+
 //CUDA Unbound - part of device reduce example
 //extern bool g_verbose; // Whether to display input/output to console
 //extern cub::CachingDeviceAllocator g_allocator; // Caching allocator for device memory
@@ -78,6 +80,12 @@ extern int nStreams;
 //Helper functions, declared but not defined. 
 
 extern void cudaErrorCheck(cudaError_t error);
+
+//Within a commun. group, these are references to global memory on device, initiated by Host.
+extern __device__  double *P_jl;
+extern __device__  double *dP_jl;
+extern __device__  double *P_rtm;
+extern __device__  double *dP_rtm;
 
 typedef struct 
 {
@@ -139,7 +147,7 @@ extern int countFT, countBT;
 ////////////////////////////////////////////////////////////////////////////////
 extern "C" {
 
-void initialize_gpu_();
+void initialize_gpu_(int *my_rank);
 //void initgpu_(int *nnod_rtp, int *nnod_rtm, int *nnod_rlm, int nidx_rtm[], int nidx_rtp[], int istep_rtm[], int istep_rlm[], int *ncomp, double *a_r_1d_rlm_r, int lstack_rlm[], double *g_colat_rtm, int *trunc_lvl, double *g_sph_rlm);
 void set_constants_(int *nnod_rtp, int *nnod_rtm, int *nnod_rlm, int nidx_rtm[], int nidx_rtp[], int istep_rtm[], int istep_rlm[], int *t_lvl, int *np_smp);
 void setptrs_(int *idx_gl_1d_rlm_j);

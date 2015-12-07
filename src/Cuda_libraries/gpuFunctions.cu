@@ -20,6 +20,12 @@ Timer movData2GPU;
 Timer movData2Host;
 #endif
 
+__device__  double *P_jl;
+__device__  double *dP_jl;
+__device__  double *P_rtm;
+__device__  double *dP_rtm;
+
+int my_rank;
 int countFT=0, countBT=0;
 int minGridSize=0, blockSize=0;
 size_t devMemory = 0;
@@ -34,32 +40,34 @@ __constant__ int lstack_rlm_cmem[1000];
 //bool g_verbose = false; // Whether to display input/output to console
 //cub::CachingDeviceAllocator g_allocator(true); // Caching allocator for device memory
 
-void initialize_gpu_() {
+void initialize_gpu_(int *mpi_proc_rank) {
 
 //Required because, Template parameters need to be evaluated by compile time
 //#if __cplusplus > 199711L
 //   #error c++ 11 standard or greater REQUIRED!
 // #endif
-
+  my_rank = *mpi_proc_rank;
+  if(my_rank == 0) {
   int device_count, device;
   // Gets number of GPU devices
   cudaGetDeviceCount(&device_count);
+ //Assert that there is 1 gpu
   cudaGetDevice(&device);
   cudaGetDeviceProperties(&prop, device);
   devMemory = prop.totalGlobalMem;
-  cudaErrorCheck(cudaDeviceSetCacheConfig(cudaFuncCachePreferEqual));
-  cudaErrorCheck(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte));
+  cudaErrorCheck(cudaDeviceSetCacheConfig(cudaFuncCachePreferL1));
+//  cudaErrorCheck(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte));
   cudaFree(0);
   #if defined(CUDA_TIMINGS)
     cudaProfilerStart();
 
   //registerAllTimers();
-  movData2GPU.setWhatAmI("Transfer data from Host to GPU");
-  movData2Host.setWhatAmI("Transfer data from GPU to Host");
-
-  cudaPerformance.registerTimer(&movData2GPU);
-  cudaPerformance.registerTimer(&movData2Host);
+//  movData2GPU.setWhatAmI("Transfer data from Host to GPU");
+//  movData2Host.setWhatAmI("Transfer data from GPU to Host");
+//  cudaPerformance.registerTimer(&movData2GPU);
+//  cudaPerformance.registerTimer(&movData2Host);
   #endif
+  }
 }
 
 void registerAllTimers() {
@@ -84,7 +92,6 @@ void set_constants_(int *nnod_rtp, int *nnod_rtm, int *nnod_rlm, int nidx_rtm[],
 
   //For best occupancy
   /*cudaErrorCheck(cudaOccupancyMaxPotentialBlockSizeVariableSMem(&minGridSize,
-																&blockSize,
 																transF_vec_reduction< 10, 
 																  cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
 																		double>, 
@@ -107,17 +114,6 @@ void set_constants_(int *nnod_rtp, int *nnod_rtm, int *nnod_rlm, int nidx_rtm[],
   constants.t_lvl = *trunc_lvl; 
 
   constants.np_smp = *np_smp;
-
-
-
-//  #if defined(CUDA_TIMINGS)
-/*    t_1 = MPI_Wtime();
-    char name[15];
-    gethostname(name, 15);
-    string str(name);
-    std::cout<<"Host: " << str << "\t Memory Allocation Time: " << t_1-t_0 << "\t Device Initialization Time: " << t_3-t_2 << std::endl;*/
-//  #endif
-
 }
 
 void setptrs_(int *idx_gl_1d_rlm_j) {
@@ -158,17 +154,39 @@ void initialize_leg_trans_gpu_() {
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.mdx_n_rlm_rtm), constants.nidx_rlm[1]*sizeof(int))); 
   memAllocation -= constants.nidx_rlm[1]*sizeof(int);
 //#ifndef CUDA_OTF
-  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.p_jl), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
-  memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
-  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_jl), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
-  memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
+  if(my_rank == 0) {
+    cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.p_jl, P_jl));
+    cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.dP_jl, dP_jl));
+    cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.p_rtm, P_rtm));
+    cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.dP_rtm, dP_rtm));
+    cudaErrorCheck(cudaMalloc((void**)&(deviceInput.p_jl), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
+    memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
+    cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_jl), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
+    memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
 //#endif
 //OTF has yet to be implemented for fwd transform
-  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.p_rtm), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
-  memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
-  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_rtm), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
-  memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
+    cudaErrorCheck(cudaMalloc((void**)&(deviceInput.p_rtm), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
+    memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
+    cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_rtm), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
+    memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
 
+    cudaErrorCheck(cudaMemcpyToSymbol(P_jl, &deviceInput.p_jl, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyToSymbol(dP_jl, &deviceInput.dP_jl, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyToSymbol(P_rtm, &deviceInput.p_rtm, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyToSymbol(dP_rtm, &deviceInput.dP_rtm, sizeof(double*)));
+  }
+  else {
+    cudaErrorCheck(cudaMemcpyFromSymbol(&deviceInput.dP_rtm, dP_rtm, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyFromSymbol(&deviceInput.p_rtm, P_rtm, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyFromSymbol(&deviceInput.dP_jl, dP_jl, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyFromSymbol(&deviceInput.p_jl, P_jl, sizeof(double*)));
+    /*cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.p_jl, "P_jl"));
+    cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.dP_jl, "dP_jl"));
+    cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.p_rtm, "P_rtm"));
+    cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.dP_rtm, "dP_rtm"));*/
+  } 
+  
+ 
 // Question, is loading from DRAM faster than actual calculation? 
 //since m=0,l=0 is the trivial case, this is excluded. All others i.e, m=1 upto t_lvl (inclusive) is allocated 
 //  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.leg_poly_m_eq_l), sizeof(double)*(constants.t_lvl)));
@@ -178,8 +196,9 @@ void initialize_leg_trans_gpu_() {
   // dim3 grid(1,1,1);
   // dim3 block(64,1,1);
   // set_leg_poly_m_ep_l<<<grid,block,0>>>(deviceInput.leg_poly_m_eq_l);
-  
-  #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
+
+//TODO: Setup debug capabilities for multiple mpi procs connected to a single GPU  
+  #if defined(CUDA_DEBUG) && defined(CHECK_SCHMIDT_OTF)
     h_debug.P_smdt = (double*) malloc (sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]);
     h_debug.dP_smdt = (double*) malloc (sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]);
     cudaErrorCheck(cudaMalloc((void**)&(d_debug.P_smdt), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
@@ -199,6 +218,7 @@ void initialize_leg_trans_gpu_() {
     cudaErrorCheck(cudaStreamCreate(&streams[i]));
     nStreams++;
   }
+
 //  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.reductionSpace), sizeof(double)*numberOfReductionSpaces*3*constants.nidx_rtm[1]));
 //  memAllocation -= sizeof(double)*numberOfReductionSpaces*3*constants.nidx_rtm[1];
 //  if(memAllocation <= 0) {
@@ -211,7 +231,7 @@ void alloc_space_on_gpu_(int *ncmp, int *nvector, int *nscalar) {
   constants.nvector = *nvector;
   constants.nscalar = *nscalar;
 
-  #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
+  #if defined(CUDA_DEBUG) && defined(CHECK_SCHMIDT_OTF)
     if(!h_debug.vr_rtm)
       h_debug.vr_rtm = (double*) malloc (sizeof(double)*constants.nnod_rtm*constants.ncomp);
     if(!h_debug.sp_rlm)
@@ -258,6 +278,7 @@ void memcpy_h2d_(int *lstack_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, dou
 }
 
 void cpy_schmidt_2_gpu_(double *P_jl, double *dP_jl, double *P_rtm, double *dP_rtm) {
+  if(my_rank == 0) {
   //#ifndef CUDA_OTF
     cudaErrorCheck(cudaMemcpy(deviceInput.p_jl, P_jl, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyHostToDevice));
     cudaErrorCheck(cudaMemcpy(deviceInput.dP_jl, dP_jl, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyHostToDevice));
@@ -265,9 +286,11 @@ void cpy_schmidt_2_gpu_(double *P_jl, double *dP_jl, double *P_rtm, double *dP_r
 //FWD trans OTF has yet to be implemented
     cudaErrorCheck(cudaMemcpy(deviceInput.p_rtm, P_rtm, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyHostToDevice));
     cudaErrorCheck(cudaMemcpy(deviceInput.dP_rtm, dP_rtm, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyHostToDevice));
+  }
 }
  
 void cpy_field_dev2host_4_debug_(int *ncomp) {
+//TODO: Setup debug capabilities for multiple mpi procs connected to a single GPU  
   #if defined(CUDA_OTF)
     cudaErrorCheck(cudaMemcpy(h_debug.P_smdt, d_debug.P_smdt, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyDeviceToHost)); 
     cudaErrorCheck(cudaMemcpy(h_debug.dP_smdt, d_debug.dP_smdt, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyDeviceToHost)); 
@@ -277,6 +300,7 @@ void cpy_field_dev2host_4_debug_(int *ncomp) {
 }
 
 void cpy_spec_dev2host_4_debug_(int *ncomp) {
+//TODO: Setup debug capabilities for multiple mpi procs connected to a single GPU  
   #if defined(CUDA_OTF)
     cudaErrorCheck(cudaMemcpy(h_debug.P_smdt, d_debug.P_smdt, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyDeviceToHost)); 
     cudaErrorCheck(cudaMemcpy(h_debug.dP_smdt, d_debug.dP_smdt, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyDeviceToHost)); 
@@ -330,15 +354,17 @@ void deAllocMemOnGPU() {
     cudaErrorCheck(cudaFree(deviceInput.mdx_n_rlm_rtm));
     cudaErrorCheck(cudaFree(deviceInput.asin_theta_1d_rtm));
   #ifndef CUDA_OTF
+  if(my_rank == 0) {
     cudaErrorCheck(cudaFree(deviceInput.p_jl));
     cudaErrorCheck(cudaFree(deviceInput.dP_jl));
     cudaErrorCheck(cudaFree(deviceInput.p_rtm));
     cudaErrorCheck(cudaFree(deviceInput.dP_rtm));
+  }
   #endif
-    cudaErrorCheck(cudaFree(deviceInput.reductionSpace));    
 }
 
 void deAllocDebugMem() {
+//TODO: Setup debug capabilities for multiple mpi procs connected to a single GPU  
   #if defined(CUDA_OTF) 
     free(h_debug.P_smdt);
     free(h_debug.dP_smdt);

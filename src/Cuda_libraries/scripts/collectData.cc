@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
   string fNameSPH = "control_sph_shell";
   string tmp;
 
-  string dir  = "sph_lm" + to_string(t_lvl) + "r63c_1";
+  string dir  = "sph_lm" + to_string((long long int) t_lvl) + "r63c_1";
   mkdir(dir.c_str(), 0755);
 
   ifstream MHD, SPH;
@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
   while( getline(MHD, line)) {
     //control MHd 
     if(line.find("sph_file_prefix") != string::npos && line.find("in") != string::npos) {
-      tmp = "'sph_lm" + to_string(t_lvl) + "r63c_1/in'";
+      tmp = "'sph_lm" + to_string((long long int) t_lvl) + "r63c_1/in'";
       MHD_mod << "    sph_file_prefix             " << tmp << endl;
     }
     else
@@ -51,19 +51,19 @@ int main(int argc, char **argv) {
   while( getline(SPH, line)) {
     //control_sph_shell
     if(line.find("sph_file_prefix") != string::npos) {
-      tmp = "'sph_lm" + to_string(t_lvl) + "r63c_1/in'";
+      tmp = "'sph_lm" + to_string((long long int) t_lvl) + "r63c_1/in'";
       SPH_mod << "    sph_file_prefix             " << tmp << endl;
     }
     else if(line.find("truncation_level_ctl") != string::npos) {
-      tmp = to_string(t_lvl);
+      tmp = to_string((long long int) t_lvl);
       SPH_mod << "      truncation_level_ctl      " << tmp << endl; 
     }
     else if(line.find("ngrid_meridonal_ctl") != string::npos) {
-      tmp = to_string(nTheta(t_lvl));
+      tmp = to_string((long long int) nTheta(t_lvl));
       SPH_mod << "    ngrid_meridonal_ctl      " << tmp << endl;
     }
     else if(line.find("ngrid_zonal_ctl") != string::npos) {
-      tmp = to_string(nPhi(nTheta(t_lvl)));
+      tmp = to_string((long long int) nPhi(nTheta(t_lvl)));
       SPH_mod << "    ngrid_zonal_ctl          " << tmp << endl;
     }
     else
