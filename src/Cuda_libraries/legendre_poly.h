@@ -82,10 +82,10 @@ extern int nStreams;
 extern void cudaErrorCheck(cudaError_t error);
 
 //Within a commun. group, these are references to global memory on device, initiated by Host.
-extern __device__  double *P_jl;
-extern __device__  double *dP_jl;
-extern __device__  double *P_rtm;
-extern __device__  double *dP_rtm;
+extern __device__  double *P_jl_dev;
+extern __device__  double *dP_jl_dev;
+extern __device__  double *P_rtm_dev;
+extern __device__  double *dP_rtm_dev;
 
 typedef struct 
 {

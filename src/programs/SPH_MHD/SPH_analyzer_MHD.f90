@@ -96,6 +96,8 @@
 !
       if (iflag_debug.gt.0) write(*,*) 'init_sph_transform_MHD'
       call init_sph_transform_MHD
+#ifndef CUDA_DEBUG
+      
 !
 !  -------------------------------
 !
@@ -127,6 +129,7 @@
       call open_sph_vol_rms_file_mhd
       call end_eleps_time(4)
 !
+#endif
       end subroutine SPH_initialize_MHD
 !
 ! ----------------------------------------------------------------------

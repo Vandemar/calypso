@@ -20,10 +20,10 @@ Timer movData2GPU;
 Timer movData2Host;
 #endif
 
-__device__  double *P_jl;
-__device__  double *dP_jl;
-__device__  double *P_rtm;
-__device__  double *dP_rtm;
+__device__  double *P_jl_dev;
+__device__  double *dP_jl_dev;
+__device__  double *P_rtm_dev;
+__device__  double *dP_rtm_dev;
 
 int my_rank;
 int countFT=0, countBT=0;
@@ -155,10 +155,6 @@ void initialize_leg_trans_gpu_() {
   memAllocation -= constants.nidx_rlm[1]*sizeof(int);
 //#ifndef CUDA_OTF
   if(my_rank == 0) {
-    cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.p_jl, P_jl));
-    cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.dP_jl, dP_jl));
-    cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.p_rtm, P_rtm));
-    cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.dP_rtm, dP_rtm));
     cudaErrorCheck(cudaMalloc((void**)&(deviceInput.p_jl), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
     memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
     cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_jl), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
@@ -170,16 +166,16 @@ void initialize_leg_trans_gpu_() {
     cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_rtm), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
     memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
 
-    cudaErrorCheck(cudaMemcpyToSymbol(P_jl, &deviceInput.p_jl, sizeof(double*)));
-    cudaErrorCheck(cudaMemcpyToSymbol(dP_jl, &deviceInput.dP_jl, sizeof(double*)));
-    cudaErrorCheck(cudaMemcpyToSymbol(P_rtm, &deviceInput.p_rtm, sizeof(double*)));
-    cudaErrorCheck(cudaMemcpyToSymbol(dP_rtm, &deviceInput.dP_rtm, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyToSymbol(P_jl_dev, &deviceInput.p_jl, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyToSymbol(dP_jl_dev, &deviceInput.dP_jl, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyToSymbol(P_rtm_dev, &deviceInput.p_rtm, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyToSymbol(dP_rtm_dev, &deviceInput.dP_rtm, sizeof(double*)));
   }
   else {
-    cudaErrorCheck(cudaMemcpyFromSymbol(&deviceInput.dP_rtm, dP_rtm, sizeof(double*)));
-    cudaErrorCheck(cudaMemcpyFromSymbol(&deviceInput.p_rtm, P_rtm, sizeof(double*)));
-    cudaErrorCheck(cudaMemcpyFromSymbol(&deviceInput.dP_jl, dP_jl, sizeof(double*)));
-    cudaErrorCheck(cudaMemcpyFromSymbol(&deviceInput.p_jl, P_jl, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyFromSymbol(&deviceInput.dP_rtm, dP_rtm_dev, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyFromSymbol(&deviceInput.p_rtm, P_rtm_dev, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyFromSymbol(&deviceInput.dP_jl, dP_jl_dev, sizeof(double*)));
+    cudaErrorCheck(cudaMemcpyFromSymbol(&deviceInput.p_jl, P_jl_dev, sizeof(double*)));
     /*cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.p_jl, "P_jl"));
     cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.dP_jl, "dP_jl"));
     cudaErrorCheck(cudaGetSymbolAddress((void**) &deviceInput.p_rtm, "P_rtm"));
@@ -231,7 +227,7 @@ void alloc_space_on_gpu_(int *ncmp, int *nvector, int *nscalar) {
   constants.nvector = *nvector;
   constants.nscalar = *nscalar;
 
-  #if defined(CUDA_DEBUG) && defined(CHECK_SCHMIDT_OTF)
+  #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
     if(!h_debug.vr_rtm)
       h_debug.vr_rtm = (double*) malloc (sizeof(double)*constants.nnod_rtm*constants.ncomp);
     if(!h_debug.sp_rlm)

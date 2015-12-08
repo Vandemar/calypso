@@ -20,9 +20,22 @@
       use m_work_time
 !
       implicit none
+      integer (kind=kint) :: x
+ 
+      x=0
+
 !
 !
       call calypso_MPI_init
+!
+#ifdef CUDA_DEBUG 
+!      do 
+!        if (x .ne. my_rank) then
+!           write(*,*) "DEbug"
+!           EXIT
+!        endif
+!      end do 
+#endif
 !
 #ifdef CUDA
       call calypso_GPU_init
