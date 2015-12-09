@@ -6,7 +6,7 @@ set(GENCODE "-gencode=arch=compute_35,code=compute_35")
 
 # debug options
 set(CUDA_NVCC_FLAGS_DEBUG "-G;-g;-O0;-DCUDA_DEBUG")
-set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DCUDA_OPTIMIZED")
+#set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DCUDA_OPTIMIZED")
 #The output is parsed and register, shared memory usage is
 #      printed during build
 set(CUDA_BUILD_CUBIN OFF)

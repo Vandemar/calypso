@@ -101,7 +101,7 @@ void transF_vec(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm
       reg1 = __dmul_rd(asin_theta_1d_rtm[l_rtm], reg0);
       reg3 = __dmul_rd(reg4, reg1);         
 
-      sp1 += __dmul_rd(vr_rtm[ip_rtm-3], reg1);
+      sp1 = fma(vr_rtm[ip_rtm-3], reg1, sp1);
       reg0 = __dmul_rd(vr_rtm[ip_rtm-2], reg2);
       reg4 =  -1 * __dmul_rd(vr_rtm[in_rtm-1], reg3);
       reg3 *= vr_rtm[in_rtm-2];
@@ -114,8 +114,8 @@ void transF_vec(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm
     idx_sp += 3; 
 
     sp_rlm[idx_sp-3] += __dmul_rd(__dmul_rd(r_1d_rlm_r, r_1d_rlm_r), sp1);
-    sp_rlm[idx_sp-2] += __dmul_rd(r_1d_rlm_r, sp2);
-    sp_rlm[idx_sp-1] += __dmul_rd(r_1d_rlm_r, sp3);
+    sp_rlm[idx_sp-2] = fma(r_1d_rlm_r, sp2, sp_rlm[idx_sp-2]);
+    sp_rlm[idx_sp-1] = fma(r_1d_rlm_r, sp3, sp_rlm[idx_sp-1]);
 
   }
 }
@@ -162,7 +162,7 @@ void transF_vec(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double 
     reg0 = __dmul_rd(gauss_norm, weight);
     reg1 = __dmul_rd(reg0, p_leg);
     reg2 = __dmul_rd(reg0, dpdt);
-    sp1 += __dmul_rd(vr_rtm[ip_rtm-3], reg1);
+    sp1 = fma(vr_rtm[ip_rtm-3], reg1, sp1);
     reg3 = __dmul_rd(__dmul_rd(asin_t, (double) order), reg1);
     
     weight = weight_rtm[l_rtm];
@@ -198,9 +198,9 @@ void transF_vec(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double 
   sp3 -= __dadd_rd(reg2, reg3); 
     
 
-  sp_rlm[idx_sp-3] += __dmul_rd(r_1d_sq, sp1);
-  sp_rlm[idx_sp-2] += __dmul_rd(r_1d_rlm_r, sp2);
-  sp_rlm[idx_sp-1] += __dmul_rd(r_1d_rlm_r, sp3);
+  sp_rlm[idx_sp-3] = fma(r_1d_sq, sp1, sp_rlm[idx_sp-3]);
+  sp_rlm[idx_sp-2] = fma(r_1d_rlm_r, sp2, sp_rlm[idx_sp-2]);
+  sp_rlm[idx_sp-1] = fma(r_1d_rlm_r, sp3, sp_rlm[idx_sp-1]);
 }
 /*
 //Reduction using an open source library CUB supported by nvidia
