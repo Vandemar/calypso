@@ -40,7 +40,7 @@ void transB_scalar(int *lstack_rlm, double *vr_rtm, double const* __restrict__ s
 
 
 __global__
-void transB_dydt(double *g_sph_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *dP_jl, const Geometry_c constants) {
+void transB_dydt(int *lstack_rlm, double *g_sph_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *dP_jl, const Geometry_c constants) {
   //dim3 grid3(nTheta, constants.nidx_rtm[2]);
   //dim3 block3(nVector,nShells,1);
 
@@ -48,8 +48,8 @@ void transB_dydt(double *g_sph_rlm, double *vr_rtm, double const* __restrict__ s
   int idx_p_jl, idx, idx_rtm; 
 
   int mp_rlm = blockIdx.y;
-  int jst = lstack_rlm_cmem[mp_rlm];
-  int jed = lstack_rlm_cmem[mp_rlm+1];
+  int jst = lstack_rlm[mp_rlm];
+  int jed = lstack_rlm[mp_rlm+1];
 
   double a_r_1d = a_r_1d_rlm_r[threadIdx.y];
 
@@ -104,7 +104,7 @@ void transB_dydt(double *g_sph_rlm, double *vr_rtm, double const* __restrict__ s
 
 //When looking at the transformed field data, the first component is off by a sign, oddly. 
 __global__
-void transB_dydp(int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl,  double *asin_theta_1d_rtm, const Geometry_c constants) {
+void transB_dydp(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl,  double *asin_theta_1d_rtm, const Geometry_c constants) {
   //dim3 grid3(nTheta, constants.nidx_rtm[2]);
   //dim3 block3(nVector, nShells,1);
 
@@ -113,8 +113,8 @@ void transB_dydp(int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict_
   double vr4=0, vr5=0;
 
   int mn_rlm = constants.nidx_rtm[2] - blockIdx.y;
-  int jst = lstack_rlm_cmem[blockIdx.y];
-  int jed = lstack_rlm_cmem[blockIdx.y+1];
+  int jst = lstack_rlm[blockIdx.y];
+  int jed = lstack_rlm[blockIdx.y+1];
   int order = idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + jst]; 
   double asin = asin_theta_1d_rtm[blockIdx.x];
   int idx_p_jl=0; 
@@ -165,7 +165,7 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
                       double>
                 <<<grid, 32>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.g_sph_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);*/
     
-  transB_dydt<<<grid, block, 0, streams[0]>>> (deviceInput.g_sph_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
+  transB_dydt<<<grid, block, 0, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.g_sph_rlm, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.dP_jl, constants);
 
 #ifdef CUDA_TIMINGS
   cudaDevSync();
@@ -194,7 +194,7 @@ void legendre_b_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
                       double>
                 <<<grid, 32>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);*/
 
-  transB_dydp<<<grid, block, 0, streams[0]>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);
+  transB_dydp<<<grid, block, 0, streams[0]>>> (deviceInput.lstack_rlm, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, deviceInput.p_jl, deviceInput.asin_theta_1d_rtm, constants);
 
 #ifdef CUDA_TIMINGS
   cudaDevSync();

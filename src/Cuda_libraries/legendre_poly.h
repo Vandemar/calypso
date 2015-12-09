@@ -48,7 +48,7 @@ extern int my_rank;
 
 // **** lstack_rlm resides in global memory as well as constant memory
 // ** Pick one or the other
-extern __constant__ int lstack_rlm_cmem[1000];
+//extern __constant__ int lstack_rlm_cmem[1000];
 
 // Fortran function calls
 extern "C" {
@@ -80,12 +80,6 @@ extern int nStreams;
 //Helper functions, declared but not defined. 
 
 extern void cudaErrorCheck(cudaError_t error);
-
-//Within a commun. group, these are references to global memory on device, initiated by Host.
-extern __device__  double *P_jl_dev;
-extern __device__  double *dP_jl_dev;
-extern __device__  double *P_rtm_dev;
-extern __device__  double *dP_rtm_dev;
 
 typedef struct 
 {
@@ -223,7 +217,7 @@ __global__ void transB_dydt_smem_dpschmidt(int *lstack_rlm, int *idx_gl_1d_rlm_j
 __global__ void transB_dydt_smem_schmidt_more_threads(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *dP_jl, const Geometry_c constants);
 __global__ void transB_dydt_smem_a_r(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double const* __restrict__ P_jl, double *dP_jl, const Geometry_c constants);
 __global__ void transB_dydt_read_only_data(int const* __restrict__ lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double const* __restrict__ P_jl, double const* __restrict__ dP_jl);
-__global__ void transB_dydp(int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *asin_theta_1d_rtm, const Geometry_c constants);
+__global__ void transB_dydp(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *asin_theta_1d_rtm, const Geometry_c constants);
 __global__ void transB_dydp_smem_schmidt_more_threads(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *asin_theta_1d_rtm, const Geometry_c constants);
 __global__ void transB_scalar(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl, const Geometry_c constants);
 __global__ void transB_scalar_opt_mem_access(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl);
