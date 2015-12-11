@@ -5,8 +5,10 @@ set(GENCODE "-gencode=arch=compute_35,code=compute_35")
 # The option dc enables dynamic parallelism in cuda
 
 # debug options
-set(CUDA_NVCC_FLAGS_DEBUG "-G;-g;-O0;-DCUDA_DEBUG")
-set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DCUDA_OPTIMIZED")
+#set(LIB_FLAGS_CUDA "--shared -xCompiler ,\"-fPIC\"")
+set(LIB_FLAGS_CUDA "--shared")
+set(CUDA_NVCC_FLAGS_DEBUG "-G" "-g" "-O0" "-DCUDA_DEBUG")
+set(CUDA_NVCC_FLAGS_RELEASE "-O3")
 #The output is parsed and register, shared memory usage is
 #      printed during build
 set(CUDA_BUILD_CUBIN OFF)
@@ -19,7 +21,6 @@ set(CUDA_BUILD_CUBIN OFF)
 set(CUDA_SEPARABLE_COMPILATION ON)
 set(CUDA_VERBOSE_BUILD ON)
 set(CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
-set(CUDA_PROPAGATE_HOST_FLAGS OFF)
 
 IF(CUB)
   set(CUDA_INCLUDE_DIRS ${CUB_INCLUDE_PATH})
@@ -27,8 +28,9 @@ ENDIF(CUB)
 
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE})
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE} ${CUDA_LIBRARY_FLAGS} )
-set(LIB_FLAGS_CUDA "--shared;")
-cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE} ${LIB_FLAGS_CUDA})
+cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE} "-Xcompiler" "-fPIC")
+set_target_properties( cudaLib PROPERTIES LINK_FLAGS "-L/usr/local/cuda/lib64")
+target_link_libraries(cudaLib "-lcudadevrt")
 #IF(CMAKE_BUILD_TYPE MATCHES DEBUG)
 #  set_target_properties(cudaLib PROPERTIES LINK_FLAGS
 #"${CUDA_LIBRARY_FLAGS};-DCUDA_DEBUG")
