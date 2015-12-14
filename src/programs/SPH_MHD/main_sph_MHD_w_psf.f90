@@ -28,13 +28,13 @@
 !
       call calypso_MPI_init
 !
-#ifdef CUDA_DEBUG 
-!      do 
-!        if (x .ne. my_rank) then
-!           write(*,*) "DEbug"
-!           EXIT
-!        endif
-!      end do 
+#ifdef MPI_DEBUG 
+      do 
+        if (x .ne. my_rank) then
+           write(*,*) "DEbug"
+           EXIT
+        endif
+      end do 
 #endif
 !
 #ifdef CUDA

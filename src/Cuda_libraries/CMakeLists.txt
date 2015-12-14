@@ -28,7 +28,7 @@ ENDIF(CUB)
 
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE})
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE} ${CUDA_LIBRARY_FLAGS} )
-cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE} "-Xcompiler" "-fPIC")
+cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE} "-Xcompiler" "-fPIC" "--linker-options" "-shared")
 set_target_properties( cudaLib PROPERTIES LINK_FLAGS "-L/usr/local/cuda/lib64")
 target_link_libraries(cudaLib "-lcudadevrt")
 #IF(CMAKE_BUILD_TYPE MATCHES DEBUG)

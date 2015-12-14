@@ -45,7 +45,7 @@ void initialize_gpu_(int *mpi_proc_rank) {
 // #endif
 //TODO: Given mpi_processes/node > 1, then atleast 1 GPU will be uninitialized
   my_rank = *mpi_proc_rank;
-  if(my_rank == 0) {
+//  if(my_rank == 0) {
   int device_count, device;
   // Gets number of GPU devices
   cudaGetDeviceCount(&device_count);
@@ -65,7 +65,7 @@ void initialize_gpu_(int *mpi_proc_rank) {
 //  cudaPerformance.registerTimer(&movData2GPU);
 //  cudaPerformance.registerTimer(&movData2Host);
   #endif
-  }
+//  }
 }
 
 void registerAllTimers() {
@@ -345,7 +345,6 @@ void deAllocDebugMem() {
   #endif
     free(h_debug.vr_rtm);
     free(h_debug.sp_rlm);
-    free(h_debug.g_sph_rlm);
 }
 
 void cleangpu_() {

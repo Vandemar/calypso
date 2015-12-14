@@ -24,11 +24,11 @@ FIND_PACKAGE(OpenMP_Fortran)
 SET (CMAKE_Fortran_FLAGS ${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS})
 
 # Look for FFTW3 and use it if available
-#FIND_PACKAGE(FFTW)
-#IF (FFTW_FOUND)
-#    ADD_DEFINITIONS(-DFFTW3)
-#    INCLUDE_DIRECTORIES(${FFTW_INCLUDES})
-#ENDIF(FFTW_FOUND)
+FIND_PACKAGE(FFTW)
+IF (FFTW_FOUND)
+    ADD_DEFINITIONS(-DFFTW3)
+    INCLUDE_DIRECTORIES(${FFTW_INCLUDES})
+ENDIF(FFTW_FOUND)
 
 # Find HDF5 - if it's not parallel then don't use it at all
 FIND_PACKAGE(HDF5 COMPONENTS Fortran)
@@ -80,8 +80,10 @@ set (CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -g -O0")
 #set (${CMAKE_CXX_LINKER_FLAGS} "-fPIC -pie")
 #set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}" "-c")
 #set (${CMAKE_CXX_CREATE_SHARED_LIBRARY} "-fPIC -pie")
-set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined -fPIC -pie")
+set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
+set(CMAKE_EXE_LINKER_FLAGS "-pie -fPIC")
 set(CUDA_PROPAGATE_HOST_FLAGS OFF)
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fPIC")
 
 # Recurse into the "src" subdirectory
 ADD_SUBDIRECTORY (src) 
