@@ -100,7 +100,7 @@ void transF_vec(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double 
     
 
      sp1 = fma(vr_rtm[ip_rtm-3], P_rtm[idx], sp1);
-     sp2 += __dadd_rd(reg1, reg2); 
+     sp2 += reg1 - reg2; 
      sp3 -= __dadd_rd(reg3, reg4); 
      
      ip_rtm +=  stride; 
