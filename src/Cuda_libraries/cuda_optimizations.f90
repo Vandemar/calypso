@@ -34,7 +34,6 @@
      &                         idx_gl_1d_rlm_j(1,1), radius_1d_rlm_r(1),&
      &                         weight_rtm(1), mdx_p_rlm_rtm(1),         &
      &                         mdx_n_rlm_rtm(1))
-
         end subroutine set_mem_4_gpu
 
         subroutine cpy_spectrum_dat_2_gpu(ncomp, sp_rlm)

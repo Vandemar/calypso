@@ -54,6 +54,22 @@ extern "C" {
   void legendre_f_trans_cuda_(int*, int*, int*);
 }
 
+typedef struct
+{
+  int positiveModeIdx;
+  int negativeModeIdx;
+  // For transF degree is not required/
+  //int degreee;
+  //Order is the absoulte value;
+  int order;
+} symmetricModes;
+
+typedef struct
+{
+  int modeIdx;
+  int order;
+} unsymmetricModes;
+
 //Fortran Variables
 typedef struct {
   int nidx_rtm[3];
@@ -68,6 +84,9 @@ typedef struct {
   int nvector;
   int t_lvl;
   int np_smp;
+  //Modes:
+  int nPairs;
+  int nSingletons;
 } Geometry_c;
 
 //Cublas library/Cuda variables
@@ -97,6 +116,8 @@ typedef struct
   double *leg_poly_m_eq_l;
   //cudaUnbound dev reduction 
   double *reductionSpace;
+  symmetricModes *pairedList;
+  unsymmetricModes *unpairedList; 
 } Parameters_s;
 
 typedef struct
@@ -120,6 +141,10 @@ typedef struct
 // Dim: jx3
 } Debug;
 
+
+extern symmetricModes *pairedModes;
+extern unsymmetricModes *unpairedModes;
+ 
 //CPU pointers to GPU memory data
 extern Parameters_s deviceInput;
 //Memory for debugging kernels
@@ -226,7 +251,13 @@ __global__ void transB_scalar_smem(int *lstack_rlm, double *vr_rtm, double const
 __global__ void transB_scalars_OTF(int *lstack_rlm, int m0, int m1, int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *g_sph_rlm, double *asin_theta_1d_rtm); 
 __global__ void transB_scalars_OTF_smem(int *lstack_rlm, int m0, int m1, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *g_sph_rlm, double *asin_theta_1d_rtm);
 
+__global__ void transF_vec(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *asin_theta_1d_rtm, const Geometry_c constants);
 __global__ void transF_vec(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants); 
+__global__ void transF_vec_unpaired(unsymmetricModes *unpairedList, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants); 
+__global__ void transF_vec_paired(symmetricModes *pairedList, double *vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants); 
+
+__global__ void transF_vec_paired_tiny(symmetricModes *pairedList, const int kLoad, double const* vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *P_rtm, double *dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants); 
+
 __global__ void transF_vec(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants); 
 
 __global__ void transF_vec_smem_schmidt(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants); 
@@ -286,3 +317,15 @@ __global__ void prepateInput(int nVec, int k_rlm, int j_rlm, int *idx_gl_1d_rlm_
                                       double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, double *input, 
                                       const Geometry_c constants);
 
+template<class T>
+__global__ void cacheL1(const T *ptr, int offset);
+
+__device__ void computeLegPoly(int order, int initialDegree, int degree, double theta, double p1, double p2, double *p, double *dp); 
+
+__device__ int findSPHId(int *idx_gl_1d_rlm_j, int nModes, int degree);
+__device__ int idSymmetricMode(int *idx_gl_1d_rlm_j, int nModes, int order, int degree);
+
+void findSymmetricModes(int *idx_gl_1d_rlm_j);
+int searchMode(int *idx_j, int order, int degree);
+
+__global__ void normalizeLegendre(double *P_rtm, double *dP_rtm, double *g_sph_rlm_7, double *weight_rtm, const Geometry_c constants);

@@ -5,7 +5,7 @@ set(GENCODE "-gencode=arch=compute_35,code=compute_35")
 # The option dc enables dynamic parallelism in cuda
 
 # debug options
-set(CUDA_NVCC_FLAGS_DEBUG "-G;-g;-O0;-DCUDA_DEBUG")
+set(CUDA_NVCC_FLAGS_DEBUG "-G;-g;-DCUDA_DEBUG")
 #set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DCUDA_OPTIMIZED")
 #The output is parsed and register, shared memory usage is
 #      printed during build
@@ -26,7 +26,9 @@ ENDIF(CUB)
 
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE})
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE} ${CUDA_LIBRARY_FLAGS} )
-cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE} )
+#cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE} -maxrregcount 44)
+#cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE} -Xptxas -dlcm=cg)
+cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE})
 IF(CMAKE_BUILD_TYPE MATCHES DEBUG)
   set_target_properties(cudaLib PROPERTIES LINK_FLAGS
 "${CUDA_LIBRARY_FLAGS};-DCUDA_DEBUG")

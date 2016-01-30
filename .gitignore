@@ -21,3 +21,6 @@ CALYPSO.log
 
 CALYPSO.aux
 
+src/Cuda_libraries/*sass
+
+src/Cuda_libraries/*cubin

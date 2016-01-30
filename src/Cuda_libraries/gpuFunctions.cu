@@ -13,6 +13,9 @@ Debug h_debug, d_debug;
 Geometry_c constants;
 References hostData;
 
+symmetricModes *pairedModes;
+unsymmetricModes *unpairedModes;
+
 #ifdef CUDA_TIMINGS
   Logger cudaPerformance("Metrics.log", 7);
 
@@ -47,8 +50,9 @@ void initialize_gpu_() {
   cudaGetDevice(&device);
   cudaGetDeviceProperties(&prop, device);
   devMemory = prop.totalGlobalMem;
-  cudaErrorCheck(cudaDeviceSetCacheConfig(cudaFuncCachePreferL1));
-//  cudaErrorCheck(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte));
+  cudaErrorCheck(cudaDeviceSetCacheConfig(cudaFuncCachePreferShared));
+//  cudaErrorCheck(cudaDeviceSetCacheConfig(cudaFuncCachePreferL1));
+  cudaErrorCheck(cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte));
   cudaFree(0);
   #if defined(CUDA_TIMINGS)
     cudaProfilerStart();
@@ -147,6 +151,8 @@ void initialize_leg_trans_gpu_() {
   memAllocation -= constants.nidx_rlm[1]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.g_sph_rlm_7), constants.nidx_rlm[1]*sizeof(double))); 
   memAllocation -= constants.nidx_rlm[1]*sizeof(double);
+  
+  
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.idx_gl_1d_rlm_j), constants.nidx_rlm[1]*3*sizeof(int))); 
   memAllocation -= constants.nidx_rlm[1]*3*sizeof(int);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.radius_1d_rlm_r), constants.nidx_rtm[0]*sizeof(double))); 
@@ -250,11 +256,22 @@ void memcpy_h2d_(int *lstack_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, dou
  cudaErrorCheck(cudaMemcpyToSymbol(lstack_rlm_cmem, lstack_rlm, sizeof(int) * (constants.nidx_rtm[2]+1), 0, cudaMemcpyHostToDevice));
   cudaErrorCheck(cudaMemcpy(deviceInput.g_sph_rlm, g_sph_rlm, constants.nidx_rlm[1]*sizeof(double), cudaMemcpyHostToDevice)); 
   cudaErrorCheck(cudaMemcpy(deviceInput.g_sph_rlm_7, g_sph_rlm_7, constants.nidx_rlm[1]*sizeof(double), cudaMemcpyHostToDevice)); 
+  
+  findSymmetricModes(idx_gl_1d_rlm_j);
+  cudaErrorCheck(cudaMalloc((void**)&deviceInput.pairedList, constants.nPairs * sizeof(symmetricModes))); 
+  cudaErrorCheck(cudaMalloc((void**)&deviceInput.unpairedList, constants.nSingletons * sizeof(unsymmetricModes)));
+  cudaErrorCheck(cudaMemcpy(deviceInput.pairedList, pairedModes, constants.nPairs * sizeof(symmetricModes), cudaMemcpyHostToDevice)); 
+  cudaErrorCheck(cudaMemcpy(deviceInput.unpairedList, unpairedModes, constants.nSingletons * sizeof(unsymmetricModes), cudaMemcpyHostToDevice));
+
   cudaErrorCheck(cudaMemcpy(deviceInput.idx_gl_1d_rlm_j, idx_gl_1d_rlm_j, constants.nidx_rlm[1]*3*sizeof(int), cudaMemcpyHostToDevice)); 
   cudaErrorCheck(cudaMemcpy(deviceInput.radius_1d_rlm_r, radius_1d_rlm_r, constants.nidx_rtm[0]*sizeof(double), cudaMemcpyHostToDevice)); 
   cudaErrorCheck(cudaMemcpy(deviceInput.weight_rtm, weight_rtm, constants.nidx_rtm[1]*sizeof(double), cudaMemcpyHostToDevice)); 
   cudaErrorCheck(cudaMemcpy(deviceInput.mdx_p_rlm_rtm, mdx_p_rlm_rtm, constants.nidx_rlm[1]*sizeof(int), cudaMemcpyHostToDevice)); 
   cudaErrorCheck(cudaMemcpy(deviceInput.mdx_n_rlm_rtm, mdx_n_rlm_rtm, constants.nidx_rlm[1]*sizeof(int), cudaMemcpyHostToDevice)); 
+
+ 
+  //cpy_schidt_2_gpu_ has already been executed at this point 
+  normalizeLegendre<<<constants.nidx_rlm[1], constants.nidx_rtm[1], 0, streams[0]>>>(deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.weight_rtm, constants); 
 }
 
 void cpy_schmidt_2_gpu_(double *P_jl, double *dP_jl, double *P_rtm, double *dP_rtm) {
@@ -265,8 +282,11 @@ void cpy_schmidt_2_gpu_(double *P_jl, double *dP_jl, double *P_rtm, double *dP_r
 //FWD trans OTF has yet to be implemented
     cudaErrorCheck(cudaMemcpy(deviceInput.p_rtm, P_rtm, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyHostToDevice));
     cudaErrorCheck(cudaMemcpy(deviceInput.dP_rtm, dP_rtm, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyHostToDevice));
+
+
 }
- 
+
+
 void cpy_field_dev2host_4_debug_(int *ncomp) {
   #if defined(CUDA_OTF)
     cudaErrorCheck(cudaMemcpy(h_debug.P_smdt, d_debug.P_smdt, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyDeviceToHost)); 
@@ -383,3 +403,76 @@ void cudaDevSync() {
 size_t computeSharedMemory(int blockSize) {
   return blockSize * sizeof(double);
 } 
+
+int searchMode(int *idx_j, int order, int degree) {
+  for(int i=0; i<constants.nidx_rlm[1]; i++) {
+    if(idx_j[constants.nidx_rlm[1]*2+i] == order && idx_j[constants.nidx_rlm[1]+i] == degree)
+      return i;
+  }
+  return -1;
+}
+
+//Note that the sign of the order is not preserved for pairs of modes.**
+void findSymmetricModes(int *idx_gl_1d_rlm_j) {
+  //At most there are nModes/2 pairs.
+  //At most there are nModes of no pairs. 
+
+  symmetricModes *pmTmp = new symmetricModes[constants.nidx_rlm[1]/2];
+  unsymmetricModes *upmTmp = new unsymmetricModes[constants.nidx_rlm[1]]; 
+
+  int nPM=0, nUPM=0;
+
+  //Order=0
+  for(int l=0; l<=constants.t_lvl; l++) {
+    int idx = searchMode(idx_gl_1d_rlm_j, 0, l);
+    if(idx != -1) {
+      upmTmp[nUPM].modeIdx = idx;
+      upmTmp[nUPM].order = 0;
+      nUPM++;
+    }
+  }
+  
+  //Order >= 1  
+  for(int m=1; m<=constants.t_lvl; m++) {
+    int idxP, idxN;
+    for(int l=m; l<=constants.t_lvl; l++) {
+      idxP = searchMode(idx_gl_1d_rlm_j, m, l); 
+      idxN = searchMode(idx_gl_1d_rlm_j, -1*m, l); 
+      if(idxP != -1 && idxN != -1) {
+        pmTmp[nPM].positiveModeIdx = idxP;
+        pmTmp[nPM].negativeModeIdx = idxN;
+        pmTmp[nPM].order = m;
+        nPM++;
+      } else if (idxP != -1) {
+        upmTmp[nUPM].modeIdx = idxP;
+        upmTmp[nUPM].order = m;
+        nUPM++;
+      } else if (idxN != -1) {
+        upmTmp[nUPM].modeIdx = idxN;
+        upmTmp[nUPM].order = -1*m;
+        nUPM++;
+      } else
+        continue;
+    }
+  }
+
+  pairedModes = new symmetricModes[nPM];
+  unpairedModes = new unsymmetricModes[nUPM];
+
+  for(int i=0; i<nPM; i++) {
+    pairedModes[i].positiveModeIdx = pmTmp[i].positiveModeIdx;
+    pairedModes[i].negativeModeIdx = pmTmp[i].negativeModeIdx;
+    pairedModes[i].order = pmTmp[i].order;
+  }
+
+  for(int i=0; i<nUPM; i++) {
+    unpairedModes[i].modeIdx = upmTmp[i].modeIdx;
+    unpairedModes[i].order = upmTmp[i].order;
+  }
+
+  constants.nPairs = nPM;  
+  constants.nSingletons = nUPM;
+
+  delete [] pmTmp;  
+  delete [] upmTmp;  
+}
