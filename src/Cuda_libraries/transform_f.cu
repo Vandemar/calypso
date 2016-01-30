@@ -81,7 +81,7 @@ void transF_vec(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double 
 
 
   int idx;
-  int idx_p_rtm = blockIdx.x*constants.nidx_rtm[0]; 
+  int idx_p_rtm = blockIdx.x*constants.nidx_rtm[1]; 
  
   int stride = constants.ncomp * constants.istep_rtm[1];
   int idx_sp = constants.ncomp * ( blockIdx.x*constants.istep_rlm[1] + k_rtm*constants.istep_rlm[0]); 
@@ -89,7 +89,7 @@ void transF_vec(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double 
   ip_rtm = 3*(threadIdx.x+1) + constants.ncomp * mdx_p;
   in_rtm = 3*(threadIdx.x+1) + constants.ncomp * mdx_n;
   sp1=sp2=sp3=0;
-  for(int l_rtm=0; l_rtm<constants.nidx_rtm[0]; l_rtm++) {
+  for(int l_rtm=0; l_rtm<constants.nidx_rtm[1]; l_rtm++) {
     idx = idx_p_rtm + l_rtm; 
     
     reg0 = P_rtm[idx] * asin_theta_1d_rtm[l_rtm] * (double) order;
