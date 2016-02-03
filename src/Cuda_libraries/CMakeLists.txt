@@ -5,7 +5,7 @@ set(GENCODE "-gencode=arch=compute_35,code=compute_35")
 # The option dc enables dynamic parallelism in cuda
 
 # debug options
-set(CUDA_NVCC_FLAGS_DEBUG "-G;-g;-DCUDA_DEBUG")
+set(CUDA_NVCC_FLAGS_DEBUG "-G;-g;-DCUDA_DEBUG;-Xptxas -v")
 #set(CUDA_NVCC_FLAGS_RELEASE "-O3;-DCUDA_OPTIMIZED")
 #The output is parsed and register, shared memory usage is
 #      printed during build
@@ -32,6 +32,10 @@ IF(CUB)
     MESSAGE( FATAL_ERROR "Try exporting the variable CUB_HOME to the top level directory of cudaUnbound source code found at https://github.com/NVlabs/cub" ) 
   ENDIF()
 ENDIF(CUB)
+
+IF(CUBLAS)
+  ADD_DEFINITIONS(-DCUBLAS)
+ENDIF()
 
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE})
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE} ${CUDA_LIBRARY_FLAGS} )

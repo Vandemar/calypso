@@ -8,9 +8,13 @@
 #include <fstream>
 #include <iostream>
 //#include <mpi.h>
+#ifdef CUB
 #include <cub/cub.cuh>
-//#include <cub/block/block_reduce.cuh>
-//#include <cub/block/block_load.cuh>
+#endif
+
+#ifdef CUBLAS
+#include <cublas_v2.h>
+#endif
 
 #include "logger.h"
 
@@ -96,7 +100,10 @@ typedef struct {
 extern cudaError_t error;
 extern cudaStream_t *streams;
 extern int nStreams;
-
+#ifdef CUBLAS
+extern cublasHandle_t handle;
+extern cublasStatus_t statusCublas;
+#endif
 //Helper functions, declared but not defined. 
 
 extern void cudaErrorCheck(cudaError_t error);
@@ -144,6 +151,16 @@ typedef struct
 // Dim: jx3
 } Debug;
 
+#ifdef CUBLAS
+typedef struct
+{
+  double *poloidal;
+  double *toroidal;
+  double *solenoidal;
+} deviceBUFFERS;
+
+extern deviceBUFFERS fwdTransBuf;
+#endif
 
 extern symmetricModes *pairedModes;
 extern unsymmetricModes *unpairedModes;

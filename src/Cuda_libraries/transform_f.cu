@@ -187,6 +187,19 @@ __global__ void transF_vec_cub(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_
 }
 #endif
 
+#ifdef CUBLAS
+void workQueue_CUBLAS( ) {
+  int idx;
+  double scalar, beta;
+  for(int m=0; m<constants.nidx_rtm[2]; m++) {
+    idx = constants.ncomp * ((hostData.mdx_p_rlm_rtm[m]-1) * constants.istep_rtm[2]);
+    scalar = 1.0; 
+    beta = 0.0;
+    statusCublas = cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, constants.nidx_rtm[0] * constants.ncomp, constants.nidx_rlm[1], constants.nidx_rtm[1], &scalar,  &deviceInput.vr_rtm[idx], constants.nidx_rtm[0] * constants.ncomp, deviceInput.p_rtm, constants.nidx_rtm[1], &beta, fwdTransBuf.poloidal, constants.nidx_rtm[0] * constants.ncomp);   
+  }
+}
+#endif
+
 __device__ __forceinline__ void prefetchL1( const double *data, int offset ){
 
 data += offset;
@@ -955,9 +968,9 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
                         constants);
 */
 #ifdef CUB
-  transF_vec_cub< 18, 4, 13,
+  transF_vec_cub< 96, 4, 13,
                   cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
-            <<<grid, 18>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
+            <<<grid, 96>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
                         deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
                         deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, 
                         constants);

@@ -29,6 +29,12 @@ size_t devMemory = 0;
 cudaStream_t *streams;
 int nStreams=0;
 
+#ifdef CUBLAS
+cublasHandle_t handle;
+cublasStatus_t statusCublas;
+deviceBUFFERS fwdTransBuf;
+#endif
+
 // **** lstack_rlm resides in global memory as well as constant memory
 // ** Pick one or the other
 __constant__ int lstack_rlm_cmem[1000];
@@ -210,6 +216,10 @@ void initialize_leg_trans_gpu_() {
 //  if(memAllocation <= 0) {
 //    exit(-1);
 //  }
+
+#ifdef CUBLAS
+  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.poloidal), sizeof(double)*constants.nidx_rtm[0]*constants.ncomp*constants.nidx_rtm[2]));
+#endif
 }
  
 void alloc_space_on_gpu_(int *ncmp, int *nvector, int *nscalar) {
