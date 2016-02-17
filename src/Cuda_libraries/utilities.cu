@@ -10,6 +10,7 @@ void cudaErrorCheck(T error) {
   return;
 }
 */
+
 void cudaErrorCheck(cudaError_t error) {
   if ( strcmp(_cudaGetErrorEnum(error), "cudaSuccess") != 0 ) {
     printf ("%s\n", _cudaGetErrorEnum(error));
@@ -23,12 +24,13 @@ void cudaErrorCheck(cufftResult error) {
   }
   return;
 }
-/*void cublasStatusCheck(cublasStatus_t stat) {
+
+void cublasStatusCheck(cublasStatus_t stat) {
   if ( strcmp(_cublasGetErrorEnum(stat),"cublasSuccess") != 0 ) {
     printf("%s\n", _cublasGetErrorEnum(stat));
   }
   return;
-}*/
+}
 
 int findMin(int *vector, int size) {
   int min_index=0;

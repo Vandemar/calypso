@@ -105,12 +105,13 @@ void transF_vec(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double 
      
      ip_rtm +=  stride; 
      in_rtm +=  stride; 
-   }
-   idx_sp += 3*(threadIdx.x+1); 
+  }
 
-   sp_rlm[idx_sp-3] += __dmul_rd(__dmul_rd(r_1d_rlm_r, r_1d_rlm_r), sp1);
-   sp_rlm[idx_sp-2] = fma(r_1d_rlm_r, sp2, sp_rlm[idx_sp-2]);
-   sp_rlm[idx_sp-1] = fma(r_1d_rlm_r, sp3, sp_rlm[idx_sp-1]);
+  idx_sp += 3*(threadIdx.x+1); 
+
+  sp_rlm[idx_sp-3] += __dmul_rd(__dmul_rd(r_1d_rlm_r, r_1d_rlm_r), sp1);
+  sp_rlm[idx_sp-2] = fma(r_1d_rlm_r, sp2, sp_rlm[idx_sp-2]);
+  sp_rlm[idx_sp-1] = fma(r_1d_rlm_r, sp3, sp_rlm[idx_sp-1]);
 
 }
 
@@ -188,16 +189,66 @@ __global__ void transF_vec_cub(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_
 #endif
 
 #ifdef CUBLAS
-void workQueue_CUBLAS( ) {
-  int idx;
-  double scalar, beta;
-  for(int m=0; m<constants.nidx_rtm[2]; m++) {
-    idx = constants.ncomp * ((hostData.mdx_p_rlm_rtm[m]-1) * constants.istep_rtm[2]);
-    scalar = 1.0; 
-    beta = 0.0;
-    statusCublas = cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, constants.nidx_rtm[0] * constants.ncomp, constants.nidx_rlm[1], constants.nidx_rtm[1], &scalar,  &deviceInput.vr_rtm[idx], constants.nidx_rtm[0] * constants.ncomp, deviceInput.p_rtm, constants.nidx_rtm[1], &beta, fwdTransBuf.poloidal, constants.nidx_rtm[0] * constants.ncomp);   
+__global__ void rearrangePhysicalData(int midx, int nidx, double *vr_p_0, double *vr_p_1, double *vr_p_2, double *vr_n_0, double *vr_n_1, double *vr_rtm, const Geometry_c constants) {
+//grid(ntheta, nshells)
+//block(3,nvector)
+  int idx = constants.ncomp * ((midx-1) * constants.istep_rtm[2] + blockIdx.x*constants.istep_rtm[1] + blockIdx.y*constants.istep_rtm[0]); 
+  double comp = vr_rtm[idx + 3*(threadIdx.y) + threadIdx.x];
+  if(threadIdx.x==0) {
+    vr_p_0[threadIdx.y + constants.nvector*blockIdx.y + constants.nvector*constants.nidx_rtm[0]*blockIdx.x] = comp;
+  } else if (threadIdx.x==1) {
+    vr_p_1[threadIdx.y + constants.nvector*blockIdx.y + constants.nvector*constants.nidx_rtm[0]*blockIdx.x] = comp;
+  } else if (threadIdx.x==2) {
+    vr_p_2[threadIdx.y + constants.nvector*blockIdx.y + constants.nvector*constants.nidx_rtm[0]*blockIdx.x] = comp;
+  }
+  idx = constants.ncomp * ((nidx-1) * constants.istep_rtm[2] + blockIdx.x*constants.istep_rtm[1] + blockIdx.y*constants.istep_rtm[0]); 
+  comp = vr_rtm[idx + 3*(threadIdx.y) + threadIdx.x];
+  if(threadIdx.x==0) {
+    vr_n_0[threadIdx.y + constants.nvector*blockIdx.y + constants.nvector*constants.nidx_rtm[0]*blockIdx.x] = comp;
+  } else if (threadIdx.x==1) {
+    vr_n_1[threadIdx.y + constants.nvector*blockIdx.y + constants.nvector*constants.nidx_rtm[0]*blockIdx.x] = comp;
   }
 }
+
+__global__ void setSpectralData(double *toroidal, double *sp_rlm, double *a_r_1d_rlm_r, const Geometry_c constants) {
+//grid(nidx_rlm[1], nshells)
+//block(3,nvector)
+
+  int idxSp = constants.ncomp * ( blockIdx.x*constants.istep_rlm[1] + blockIdx.y*constants.istep_rlm[0]) + 3*threadIdx.y; 
+  if(threadIdx.x == 0) {
+    sp_rlm[idxSp] = toroidal[threadIdx.y + constants.nvector*blockIdx.y + constants.nvector*constants.nidx_rlm[0]*blockIdx.x] * a_r_1d_rlm_r[blockIdx.y] * a_r_1d_rlm_r[blockIdx.y];
+  }
+}
+
+__global__ 
+void tmpDebug(double* vr_p_0, double* vr_rtm, const Geometry_c constants) {
+  vr_p_0[threadIdx.x] = threadIdx.x;
+}
+
+/*__global__
+void scaleMatrix(double scalar, double *A) {
+  A[threadIdx.x + blockDim.x*threadIdx.y] *= r
+}*/
+/*
+void fwd_sht_w_cublas_( int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *vr_rtm, double *sp_rlm) {
+  int idx;
+  double alpha, beta;
+  tmpDebug<<<1,1>>>(fwdTransBuf.vr_rtm, fwdTransBuf.p_rtm, fwdTransBuf.poloidal);
+  for(int m=0; m<constants.nidx_rtm[2]; m++) {
+    //cublasSetStream(handle, streams[m%nStreams]);
+    for( int i=0; i < constants.nidx_rtm[0]; i++) {
+      idx = constants.ncomp * ((hostData.mdx_p_rlm_rtm[m]-1) * constants.istep_rtm[2] + i*constants.istep_rtm[0]);
+      cublasStatusCheck(cublasSetMatrix(constants.ncomp, constants.nidx_rtm[1], sizeof(double), &vr_rtm[idx], constants.ncomp, fwdTransBuf.h_vr_rtm[i], constants.ncomp));
+    } 
+    alpha = 1.0; 
+    beta = 0.0;
+    cublasStatusCheck(cublasDgemmBatched(handle, CUBLAS_OP_N, CUBLAS_OP_N, constants.ncomp, constants.nidx_rlm[1], constants.nidx_rtm[1], &alpha,  (const double**) fwdTransBuf.vr_rtm, constants.ncomp, (const double**) fwdTransBuf.p_rtm, constants.nidx_rtm[1], &beta, fwdTransBuf.poloidal, constants.ncomp, constants.nidx_rtm[0]));   
+    for( int i=0; i < constants.nidx_rtm[0]; i++) {
+      cublasGetMatrix(constants.ncomp, constants.nidx_rlm[1], sizeof(double), fwdTransBuf.h_poloidal[i], constants.ncomp, &sp_rlm[constants.ncomp * (constants.istep_rlm[1]*m + constants.istep_rlm[0]*i)], constants.ncomp);
+    }
+  }
+}
+*/
 #endif
 
 __device__ __forceinline__ void prefetchL1( const double *data, int offset ){
@@ -981,7 +1032,21 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
 //  transF_vec<<<constants.nidx_rlm[1], block, 0, streams[0]>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, constants);
 //  transF_vec_unpaired<<<constants.nSingletons, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[0]>>> (deviceInput.unpairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 //  transF_vec_paired<<<constants.nPairs, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[1]>>> (deviceInput.pairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
- 
+
+#ifdef CUBLAS
+  double alpha=1, beta=0;
+  dim3 dataMovementBlk(3,constants.nvector,1); 
+  dim3 dataMovementGrid(constants.nidx_rtm[1],constants.nidx_rtm[0],1);
+  dim3 setDataGrid(constants.nidx_rlm[1], constants.nidx_rlm[0]);
+
+  for(int l=0; l<constants.nidx_rlm[1]; l++) {
+    rearrangePhysicalData<<<dataMovementGrid, dataMovementBlk>>>(hostData.mdx_p_rlm_rtm[l], hostData.mdx_n_rlm_rtm[l], fwdTransBuf.d_vr_p_0, fwdTransBuf.d_vr_p_1, fwdTransBuf.d_vr_p_2, fwdTransBuf.d_vr_n_0, fwdTransBuf.d_vr_n_1, deviceInput.vr_rtm, constants); 
+    tmpDebug<<<1,1>>>(fwdTransBuf.d_vr_p_0, deviceInput.vr_rtm, constants);
+    cublasStatusCheck(cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, constants.nvector * constants.nidx_rtm[0], constants.nidx_rlm[1], constants.nidx_rtm[1], &alpha, fwdTransBuf.d_vr_p_0, constants.nvector * constants.nidx_rtm[0], deviceInput.p_rtm, constants.nidx_rtm[1], &beta, fwdTransBuf.sp1, constants.nvector*constants.nidx_rlm[0]));
+    setSpectralData<<<setDataGrid, dataMovementBlk>>>(fwdTransBuf.sp1, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, constants);
+  }
+#endif
+
 #ifdef CUDA_TIMINGS
   cudaDevSync();
   transF_v.endTimer();

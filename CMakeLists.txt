@@ -58,7 +58,14 @@ IF (CUDA_FOUND)
     ADD_DEFINITIONS(-DCUDA_TIMINGS)
   ENDIF(TIME)
   
- 
+  IF(CUB)
+    ADD_DEFINITIONS(-DCUB)
+  ENDIF() 
+
+  IF(CUBLAS)
+    ADD_DEFINITIONS(-DCUBLAS)
+  ENDIF() 
+
   INCLUDE_DIRECTORIES(${CUDA_INCLUDE_DIRS})
   #These environment variables are specific to the supercomputers accessed
   # through xsede.

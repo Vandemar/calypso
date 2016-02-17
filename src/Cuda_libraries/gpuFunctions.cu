@@ -70,6 +70,10 @@ void initialize_gpu_() {
   cudaPerformance.registerTimer(&movData2GPU);
   cudaPerformance.registerTimer(&movData2Host);
   #endif
+
+  #ifdef CUBLAS
+    cublasStatusCheck(cublasCreate(&handle));
+  #endif
 }
 
 void registerAllTimers() {
@@ -169,13 +173,10 @@ void initialize_leg_trans_gpu_() {
   memAllocation -= constants.nidx_rlm[1]*sizeof(int);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.mdx_n_rlm_rtm), constants.nidx_rlm[1]*sizeof(int))); 
   memAllocation -= constants.nidx_rlm[1]*sizeof(int);
-//#ifndef CUDA_OTF
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.p_jl), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
   memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_jl), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
   memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
-//#endif
-//OTF has yet to be implemented for fwd transform
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.p_rtm), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
   memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_rtm), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
@@ -218,7 +219,12 @@ void initialize_leg_trans_gpu_() {
 //  }
 
 #ifdef CUBLAS
-  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.poloidal), sizeof(double)*constants.nidx_rtm[0]*constants.ncomp*constants.nidx_rtm[2]));
+  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.d_vr_p_0), sizeof(double) * (constants.nvector) * constants.nidx_rtm[0] * constants.nidx_rtm[1])); 
+  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.d_vr_p_1), sizeof(double) * (constants.nvector) * constants.nidx_rtm[0] * constants.nidx_rtm[1])); 
+  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.d_vr_p_2), sizeof(double) * (constants.nvector) * constants.nidx_rtm[0] * constants.nidx_rtm[1])); 
+  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.d_vr_n_0), sizeof(double) * (constants.nvector) * constants.nidx_rtm[0] * constants.nidx_rtm[1])); 
+  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.d_vr_n_1), sizeof(double) * (constants.nvector) * constants.nidx_rtm[0] * constants.nidx_rtm[1])); 
+  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.sp1), sizeof(double) * (constants.nvector) * constants.nidx_rlm[0] * constants.nidx_rlm[1])); 
 #endif
 }
  

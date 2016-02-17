@@ -59,6 +59,9 @@ extern __constant__ int lstack_rlm_cmem[1000];
 extern "C" {
   void legendre_b_trans_cuda_(int*, int*, int*);
   void legendre_f_trans_cuda_(int*, int*, int*);
+#ifdef CUBLAS
+  void fwd_sht_w_cublas_( double *vr_rtm, double *sp_rlm);
+#endif
 }
 
 typedef struct
@@ -107,6 +110,7 @@ extern cublasStatus_t statusCublas;
 //Helper functions, declared but not defined. 
 
 extern void cudaErrorCheck(cudaError_t error);
+extern void cublasStatusCheck(cublasStatus_t stat);
 
 typedef struct 
 {
@@ -154,9 +158,12 @@ typedef struct
 #ifdef CUBLAS
 typedef struct
 {
-  double *poloidal;
-  double *toroidal;
-  double *solenoidal;
+  double *d_vr_p_0;
+  double *d_vr_p_1;
+  double *d_vr_p_2;
+  double *d_vr_n_0;
+  double *d_vr_n_1;
+  double *sp1;
 } deviceBUFFERS;
 
 extern deviceBUFFERS fwdTransBuf;
@@ -357,3 +364,9 @@ void findSymmetricModes(int *idx_gl_1d_rlm_j);
 int searchMode(int *idx_j, int order, int degree);
 
 __global__ void normalizeLegendre(double *P_rtm, double *dP_rtm, double *g_sph_rlm_7, double *weight_rtm, const Geometry_c constants);
+
+#ifdef CUBLAS
+__global__ void rearrangePhysicalData(int midx, int nidx, double *vr_p_0, double *vr_p_1, double *vr_p_2, double *vr_n_0, double *vr_n_1, double *vr_rtm, const Geometry_c constants); 
+__global__ void setSpectralData(double *toroidal, double *sp_rlm, const Geometry_c constants);
+__global__ void tmpDebug(double* vr_p_0, double* vr_rtm, const Geometry_c constants);
+#endif
