@@ -996,9 +996,6 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   constants.nscalar= *nscalar;
   constants.nvector = *nvector;
 
-  dim3 grid(constants.nidx_rlm[1],nShells,1);
-  dim3 block(constants.nvector, constants.nidx_rtm[0],1);
-
   //ToDo: Ponder this: if not exact, what are the consequences?
   //Extremeley important! *****
   //int itemsPerThread = constants.nidx_rtm[1]/blockSize; 
@@ -1019,21 +1016,14 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
                         constants);
 */
 #ifdef CUB
+  dim3 grid(constants.nidx_rlm[1],nShells,1);
   transF_vec_cub< 96, 4, 13,
                   cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
             <<<grid, 96>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
                         deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
                         deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, 
                         constants);
-#endif
-  //dim3 grid(constants.nidx_rlm[1],constants.nidx_rtm[0],1); 
-  //dim3 block(nTheta,1,1);
-
-//  transF_vec<<<constants.nidx_rlm[1], block, 0, streams[0]>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, constants);
-//  transF_vec_unpaired<<<constants.nSingletons, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[0]>>> (deviceInput.unpairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
-//  transF_vec_paired<<<constants.nPairs, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[1]>>> (deviceInput.pairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
-
-#ifdef CUBLAS
+#elif defined(CUBLAS)
   double alpha=1, beta=0;
   dim3 dataMovementBlk(3,constants.nvector,1); 
   dim3 dataMovementGrid(constants.nidx_rtm[1],constants.nidx_rtm[0],1);
@@ -1045,6 +1035,13 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
     cublasStatusCheck(cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, constants.nvector * constants.nidx_rtm[0], constants.nidx_rlm[1], constants.nidx_rtm[1], &alpha, fwdTransBuf.d_vr_p_0, constants.nvector * constants.nidx_rtm[0], deviceInput.p_rtm, constants.nidx_rtm[1], &beta, fwdTransBuf.sp1, constants.nvector*constants.nidx_rlm[0]));
     setSpectralData<<<setDataGrid, dataMovementBlk>>>(fwdTransBuf.sp1, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, constants);
   }
+#else
+  dim3 grid(constants.nidx_rlm[1],1,1);
+  dim3 block(constants.nvector, constants.nidx_rtm[0],1);
+
+  transF_vec<<<grid, block, 0, streams[0]>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, constants);
+//  transF_vec_unpaired<<<constants.nSingletons, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[0]>>> (deviceInput.unpairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+//  transF_vec_paired<<<constants.nPairs, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[1]>>> (deviceInput.pairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 #endif
 
 #ifdef CUDA_TIMINGS
