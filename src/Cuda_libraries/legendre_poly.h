@@ -126,7 +126,7 @@ typedef struct
   int *mdx_p_rlm_rtm, *mdx_n_rlm_rtm;
   double *p_jl;
   double *dP_jl;
-  double *p_rtm, *dP_rtm;
+  double *p_rtm, *dP_rtm, *Pgvw;
   double *leg_poly_m_eq_l;
   //cudaUnbound dev reduction 
   double *reductionSpace;
@@ -163,7 +163,11 @@ typedef struct
   double *d_vr_p_2;
   double *d_vr_n_0;
   double *d_vr_n_1;
-  double *sp1;
+  double *pol_e;
+  double *dpoldt_e;
+  double *dpoldp_e;
+  double *dtordt_e;
+  double *dtordp_e;
 } deviceBUFFERS;
 
 extern deviceBUFFERS fwdTransBuf;
@@ -363,10 +367,11 @@ __device__ int idSymmetricMode(int *idx_gl_1d_rlm_j, int nModes, int order, int 
 void findSymmetricModes(int *idx_gl_1d_rlm_j);
 int searchMode(int *idx_j, int order, int degree);
 
-__global__ void normalizeLegendre(double *P_rtm, double *dP_rtm, double *g_sph_rlm_7, double *weight_rtm, const Geometry_c constants);
-
 #ifdef CUBLAS
+__global__ void normalizeLegendre(double *P_rtm, double *dP_rtm, double *Pgvw, double *g_sph_rlm_7, double *weight_rtm, double *asin_theta_1d_rtm, int *idx_gl_1d_rlm_j, const Geometry_c constants);
 __global__ void rearrangePhysicalData(int midx, int nidx, double *vr_p_0, double *vr_p_1, double *vr_p_2, double *vr_n_0, double *vr_n_1, double *vr_rtm, const Geometry_c constants); 
-__global__ void setSpectralData(double *toroidal, double *sp_rlm, const Geometry_c constants);
+__global__ void setSpectralData(double *sp1, double *sp2, double *sp3, double *sp_rlm, const Geometry_c constants);
 __global__ void tmpDebug(double* vr_p_0, double* vr_rtm, const Geometry_c constants);
+#else
+__global__ void normalizeLegendre(double *P_rtm, double *dP_rtm, double *g_sph_rlm_7, double *weight_rtm, const Geometry_c constants);
 #endif

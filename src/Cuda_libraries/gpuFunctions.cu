@@ -181,7 +181,8 @@ void initialize_leg_trans_gpu_() {
   memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_rtm), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
   memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
-
+  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.Pgvw), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
+  
 // Question, is loading from DRAM faster than actual calculation? 
 //since m=0,l=0 is the trivial case, this is excluded. All others i.e, m=1 upto t_lvl (inclusive) is allocated 
 //  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.leg_poly_m_eq_l), sizeof(double)*(constants.t_lvl)));
@@ -224,7 +225,11 @@ void initialize_leg_trans_gpu_() {
   cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.d_vr_p_2), sizeof(double) * (constants.nvector) * constants.nidx_rtm[0] * constants.nidx_rtm[1])); 
   cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.d_vr_n_0), sizeof(double) * (constants.nvector) * constants.nidx_rtm[0] * constants.nidx_rtm[1])); 
   cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.d_vr_n_1), sizeof(double) * (constants.nvector) * constants.nidx_rtm[0] * constants.nidx_rtm[1])); 
-  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.sp1), sizeof(double) * (constants.nvector) * constants.nidx_rlm[0] * constants.nidx_rlm[1])); 
+  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.pol_e), sizeof(double) * (constants.nvector) * constants.nidx_rlm[0] * constants.nidx_rlm[1])); 
+  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.dpoldt_e), sizeof(double) * (constants.nvector) * constants.nidx_rlm[0] * constants.nidx_rlm[1])); 
+  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.dpoldp_e), sizeof(double) * (constants.nvector) * constants.nidx_rlm[0] * constants.nidx_rlm[1])); 
+  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.dtordt_e), sizeof(double) * (constants.nvector) * constants.nidx_rlm[0] * constants.nidx_rlm[1])); 
+  cudaErrorCheck(cudaMalloc((void**)&(fwdTransBuf.dtordp_e), sizeof(double) * (constants.nvector) * constants.nidx_rlm[0] * constants.nidx_rlm[1])); 
 #endif
 }
  
@@ -287,7 +292,12 @@ void memcpy_h2d_(int *lstack_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, dou
 
  
   //cpy_schidt_2_gpu_ has already been executed at this point 
+#ifdef CUBLAS
+  normalizeLegendre<<<constants.nidx_rlm[1], constants.nidx_rtm[1], 0, streams[0]>>>(deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.Pgvw, deviceInput.g_sph_rlm_7, deviceInput.weight_rtm, deviceInput.asin_theta_1d_rtm, deviceInput.idx_gl_1d_rlm_j, constants); 
+#else
   normalizeLegendre<<<constants.nidx_rlm[1], constants.nidx_rtm[1], 0, streams[0]>>>(deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.weight_rtm, constants); 
+#endif
+
 }
 
 void cpy_schmidt_2_gpu_(double *P_jl, double *dP_jl, double *P_rtm, double *dP_rtm) {
@@ -298,6 +308,9 @@ void cpy_schmidt_2_gpu_(double *P_jl, double *dP_jl, double *P_rtm, double *dP_r
 //FWD trans OTF has yet to be implemented
     cudaErrorCheck(cudaMemcpy(deviceInput.p_rtm, P_rtm, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyHostToDevice));
     cudaErrorCheck(cudaMemcpy(deviceInput.dP_rtm, dP_rtm, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyHostToDevice));
+  #ifdef CUBLAS
+    cudaErrorCheck(cudaMemcpy(deviceInput.Pgvw, P_rtm, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1], cudaMemcpyHostToDevice));
+  #endif
 
 
 }

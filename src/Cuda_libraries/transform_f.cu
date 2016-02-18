@@ -210,19 +210,26 @@ __global__ void rearrangePhysicalData(int midx, int nidx, double *vr_p_0, double
   }
 }
 
-__global__ void setSpectralData(double *toroidal, double *sp_rlm, double *a_r_1d_rlm_r, const Geometry_c constants) {
+__global__ void setSpectralData(double *sp1, double *sp2, double *sp3, double *sp_rlm, double *r_1d_rlm_r, const Geometry_c constants) {
 //grid(nidx_rlm[1], nshells)
 //block(3,nvector)
 
   int idxSp = constants.ncomp * ( blockIdx.x*constants.istep_rlm[1] + blockIdx.y*constants.istep_rlm[0]) + 3*threadIdx.y; 
+  double radius_1d_rlm_r = r_1d_rlm_r[blockIdx.y];
   if(threadIdx.x == 0) {
-    sp_rlm[idxSp] = toroidal[threadIdx.y + constants.nvector*blockIdx.y + constants.nvector*constants.nidx_rlm[0]*blockIdx.x] * a_r_1d_rlm_r[blockIdx.y] * a_r_1d_rlm_r[blockIdx.y];
+    sp_rlm[idxSp] = sp1[threadIdx.y + constants.nvector*blockIdx.y + constants.nvector*constants.nidx_rlm[0]*blockIdx.x] * radius_1d_rlm_r * radius_1d_rlm_r;
+  }
+  else if(threadIdx.x == 1) {
+    sp_rlm[idxSp+1] = sp2[threadIdx.y + constants.nvector*blockIdx.y + constants.nvector*constants.nidx_rlm[0]*blockIdx.x] * radius_1d_rlm_r;
+  }
+  else { 
+    sp_rlm[idxSp+2] = sp3[threadIdx.y + constants.nvector*blockIdx.y + constants.nvector*constants.nidx_rlm[0]*blockIdx.x] * radius_1d_rlm_r; 
   }
 }
 
 __global__ 
 void tmpDebug(double* vr_p_0, double* vr_rtm, const Geometry_c constants) {
-  vr_p_0[threadIdx.x] = threadIdx.x;
+  vr_p_0[threadIdx.x] = vr_p_0[threadIdx.x];
 }
 
 /*__global__
@@ -617,11 +624,18 @@ void transF_vec(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double 
   sp_rlm[idx_sp_sym-1] = fma(radius_1d_rlm_r[threadIdx.y], sp3_sym, sp_rlm[idx_sp_sym-1]);
 }
 
+#ifndef CUBLAS
 __global__ void normalizeLegendre(double *P_rtm, double *dP_rtm, double *g_sph_rlm_7, double *weight_rtm, const Geometry_c constants) {
-   // dim3 grid(nidx_rlm[1])
-   // dim3 block(nidx_rtm[1],1,1)
-    P_rtm[blockIdx.x*constants.nidx_rtm[1] + threadIdx.x] *= g_sph_rlm_7[blockIdx.x] * weight_rtm[threadIdx.x];
-    dP_rtm[blockIdx.x*constants.nidx_rtm[1] + threadIdx.x] *= g_sph_rlm_7[blockIdx.x] * weight_rtm[threadIdx.x];
+#else
+__global__ void normalizeLegendre(double *P_rtm, double *dP_rtm, double *Pgvw, double *g_sph_rlm_7, double *weight_rtm, double *asin_theta_1d_rtm, int *idx_gl_1d_rlm_j, const Geometry_c constants) {
+#endif
+  // dim3 grid(nidx_rlm[1])
+  // dim3 block(nidx_rtm[1],1,1)
+  P_rtm[blockIdx.x*constants.nidx_rtm[1] + threadIdx.x] *= g_sph_rlm_7[blockIdx.x] * weight_rtm[threadIdx.x];
+  dP_rtm[blockIdx.x*constants.nidx_rtm[1] + threadIdx.x] *= g_sph_rlm_7[blockIdx.x] * weight_rtm[threadIdx.x];
+#ifdef CUBLAS
+  Pgvw[blockIdx.x*constants.nidx_rtm[1] + threadIdx.x] *= g_sph_rlm_7[blockIdx.x] * weight_rtm[threadIdx.x] * asin_theta_1d_rtm[threadIdx.x] * idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + blockIdx.x];
+#endif
 }
 
 __global__ void transF_vec_paired(symmetricModes *pairedList, double *vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants) 
@@ -1029,12 +1043,28 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   dim3 dataMovementGrid(constants.nidx_rtm[1],constants.nidx_rtm[0],1);
   dim3 setDataGrid(constants.nidx_rlm[1], constants.nidx_rlm[0]);
 
+//A series of matrix vector multiplies queued into the different streams
   for(int l=0; l<constants.nidx_rlm[1]; l++) {
     rearrangePhysicalData<<<dataMovementGrid, dataMovementBlk>>>(hostData.mdx_p_rlm_rtm[l], hostData.mdx_n_rlm_rtm[l], fwdTransBuf.d_vr_p_0, fwdTransBuf.d_vr_p_1, fwdTransBuf.d_vr_p_2, fwdTransBuf.d_vr_n_0, fwdTransBuf.d_vr_n_1, deviceInput.vr_rtm, constants); 
     tmpDebug<<<1,1>>>(fwdTransBuf.d_vr_p_0, deviceInput.vr_rtm, constants);
-    cublasStatusCheck(cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, constants.nvector * constants.nidx_rtm[0], constants.nidx_rlm[1], constants.nidx_rtm[1], &alpha, fwdTransBuf.d_vr_p_0, constants.nvector * constants.nidx_rtm[0], deviceInput.p_rtm, constants.nidx_rtm[1], &beta, fwdTransBuf.sp1, constants.nvector*constants.nidx_rlm[0]));
-    setSpectralData<<<setDataGrid, dataMovementBlk>>>(fwdTransBuf.sp1, deviceInput.sp_rlm, deviceInput.a_r_1d_rlm_r, constants);
+    cublasStatusCheck(cublasDgemv(handle, CUBLAS_OP_N, constants.nvector * constants.nidx_rtm[0], constants.nidx_rtm[1], &alpha, fwdTransBuf.d_vr_p_0, constants.nvector * constants.nidx_rtm[0], &deviceInput.p_rtm[constants.nidx_rtm[1]*l], 1, &beta, &fwdTransBuf.pol_e[constants.nvector*constants.nidx_rlm[0]*l], 1));
+
+    cublasStatusCheck(cublasDgemv(handle, CUBLAS_OP_N, constants.nvector * constants.nidx_rtm[0], constants.nidx_rtm[1], &alpha, fwdTransBuf.d_vr_p_1, constants.nvector * constants.nidx_rtm[0], &deviceInput.dP_rtm[constants.nidx_rtm[1]*l], 1, &beta, &fwdTransBuf.dpoldt_e[constants.nvector*constants.nidx_rlm[0]*l], 1));
+    cublasStatusCheck(cublasDgemv(handle, CUBLAS_OP_N, constants.nvector * constants.nidx_rtm[0], constants.nidx_rtm[1], &alpha, fwdTransBuf.d_vr_n_1, constants.nvector * constants.nidx_rtm[0], &deviceInput.Pgvw[constants.nidx_rtm[1]*l], 1, &beta, &fwdTransBuf.dpoldp_e[constants.nvector*constants.nidx_rlm[0]*l], 1));
+
+    cublasStatusCheck(cublasDgemv(handle, CUBLAS_OP_N, constants.nvector * constants.nidx_rtm[0], constants.nidx_rtm[1], &alpha, fwdTransBuf.d_vr_n_0, constants.nvector * constants.nidx_rtm[0], &deviceInput.Pgvw[constants.nidx_rtm[1]*l], 1, &beta, &fwdTransBuf.dtordt_e[constants.nvector*constants.nidx_rlm[0]*l], 1));
+    cublasStatusCheck(cublasDgemv(handle, CUBLAS_OP_N, constants.nvector * constants.nidx_rtm[0], constants.nidx_rtm[1], &alpha, fwdTransBuf.d_vr_p_2, constants.nvector * constants.nidx_rtm[0], &deviceInput.dP_rtm[constants.nidx_rtm[1]*l], 1, &beta, &fwdTransBuf.dtordp_e[constants.nvector*constants.nidx_rlm[0]*l], 1));
   }
+
+  //sp2
+  beta = -1;
+  cublasStatusCheck(cublasDgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, constants.nidx_rlm[0]*constants.nvector, constants.nidx_rlm[1], &alpha, fwdTransBuf.dpoldt_e, constants.nidx_rlm[0]*constants.nvector, &beta, fwdTransBuf.dpoldp_e, constants.nidx_rlm[0]*constants.nvector, fwdTransBuf.dpoldt_e, constants.nidx_rlm[0]*constants.nvector));
+ 
+  //sp3
+  alpha = -1;
+  cublasStatusCheck(cublasDgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, constants.nidx_rlm[0]*constants.nvector, constants.nidx_rlm[1], &alpha, fwdTransBuf.dtordt_e, constants.nidx_rlm[0]*constants.nvector, &beta, fwdTransBuf.dtordp_e, constants.nidx_rlm[0]*constants.nvector, fwdTransBuf.dtordt_e, constants.nidx_rlm[0]*constants.nvector));
+  
+  setSpectralData<<<setDataGrid, dataMovementBlk>>>(fwdTransBuf.pol_e, fwdTransBuf.dpoldt_e, fwdTransBuf.dtordt_e, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, constants);
 #else
   dim3 grid(constants.nidx_rlm[1],1,1);
   dim3 block(constants.nvector, constants.nidx_rtm[0],1);
