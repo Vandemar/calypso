@@ -414,6 +414,14 @@
 #ifdef CUDA
         write(*,*) '13: elapsed by CUDA : ',          &
      &            etime_trans(iflag_leg_cuda)
+#ifdef CUB
+        write(*,*) '14: elapsed by CUB : ',          &
+     &            etime_trans(iflag_leg_cub)
+#endif
+#ifdef CUBLAS
+        write(*,*) '15: elapsed by CUBLAS : ',          &
+     &            etime_trans(iflag_leg_cublas)
+#endif
 #endif
 !
       end subroutine select_legendre_transform

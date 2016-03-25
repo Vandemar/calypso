@@ -43,10 +43,12 @@ ENDIF (CUDA_FOUND)
 
 IF(CUDA_FOUND)
   IF(CMAKE_BUILD_TYPE MATCHES DEBUG)
-    set_target_properties(calypso PROPERTIES LINK_FLAGS "-stdlib=libstdc++")
+    #No complaints when the following is set and BUILD type is STATIC
+    #set_target_properties(calypso PROPERTIES LINK_FLAGS "-stdlib=libstdc++")
+    #set_target_properties(calypso PROPERTIES LINK_FLAGS)
   ENDIF(CMAKE_BUILD_TYPE MATCHES DEBUG)
   IF(CMAKE_BUILD_TYPE MATCHES RELEASE)
-    set_target_properties(calypso PROPERTIES LINK_FLAGS "-stdlib=libstdc++")
+    #set_target_properties(calypso PROPERTIES LINK_FLAGS "-stdlib=libstdc++")
   ENDIF(CMAKE_BUILD_TYPE MATCHES RELEASE)
 ENDIF(CUDA_FOUND)
 

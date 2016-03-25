@@ -1003,50 +1003,59 @@ void transF_scalar_reduction(double *vr_rtm, double *sp_rlm, double *weight_rtm,
 }*/
 
 
-void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
+void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar) {
   static int nShells = constants.nidx_rtm[0];
 
   constants.ncomp = *ncomp;
   constants.nscalar= *nscalar;
   constants.nvector = *nvector;
 
-  //ToDo: Ponder this: if not exact, what are the consequences?
-  //Extremeley important! *****
-  //int itemsPerThread = constants.nidx_rtm[1]/blockSize; 
-  //std::assert(itemsPerThread*blockSize == constants.nidx_rtm[1]);
-  //std::assert(minGridSize <= constants.nidx_rlm[1]);
 
 #ifdef CUDA_TIMINGS
-  static Timer transF_v("fwd vector algorithm ");
+  static Timer transF_v("fwd vector algorithm CUDA");
   cudaPerformance.registerTimer(&transF_v);
   transF_v.startTimer();
 #endif
-/*  transF_vec_reduction< 32, 3,
-                  cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
-                      double>
-            <<<grid, 32>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
-                        deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
-                        deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, 
-                        constants);
-*/
-#ifdef CUB
-  dim3 grid(constants.nidx_rlm[1],nShells,1);
-  transF_vec_cub< 96, 4, 13,
-                  cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
-            <<<grid, 96>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
-                        deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
-                        deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, 
-                        constants);
-#elif defined(CUBLAS)
+
+  dim3 grid(constants.nidx_rlm[1],1,1);
+  dim3 block(constants.nvector, constants.nidx_rtm[0],1);
+
+  transF_vec<<<grid, block, 0, streams[0]>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, constants);
+//  transF_vec_unpaired<<<constants.nSingletons, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[0]>>> (deviceInput.unpairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+//  transF_vec_paired<<<constants.nPairs, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[1]>>> (deviceInput.pairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+
+#ifdef CUDA_TIMINGS
+  cudaDevSync();
+  transF_v.endTimer();
+#endif
+
+  
+}
+
+void legendre_f_trans_vector_cublas_(int *ncomp, int *nvector, int *nscalar) {
+#ifdef CUBLAS
+  static int nShells = constants.nidx_rtm[0];
+
+  constants.ncomp = *ncomp;
+  constants.nscalar= *nscalar;
+  constants.nvector = *nvector;
+
   double alpha=1, beta=0;
   dim3 dataMovementBlk(3,constants.nvector,1); 
   dim3 dataMovementGrid(constants.nidx_rtm[1],constants.nidx_rtm[0],1);
   dim3 setDataGrid(constants.nidx_rlm[1], constants.nidx_rlm[0]);
 
+#ifdef CUDA_TIMINGS
+  static Timer transF_v_cublas("fwd vector algorithm CUBLAS");
+  cudaPerformance.registerTimer(&transF_v_cublas);
+  transF_v_cublas.startTimer();
+#endif
+
 //A series of matrix vector multiplies queued into the different streams
   for(int l=0; l<constants.nidx_rlm[1]; l++) {
-    rearrangePhysicalData<<<dataMovementGrid, dataMovementBlk>>>(hostData.mdx_p_rlm_rtm[l], hostData.mdx_n_rlm_rtm[l], fwdTransBuf.d_vr_p_0, fwdTransBuf.d_vr_p_1, fwdTransBuf.d_vr_p_2, fwdTransBuf.d_vr_n_0, fwdTransBuf.d_vr_n_1, deviceInput.vr_rtm, constants); 
-    tmpDebug<<<1,1>>>(fwdTransBuf.d_vr_p_0, deviceInput.vr_rtm, constants);
+    cublasStatusCheck(cublasSetStream(handle, streams[l%nStreams]));
+    rearrangePhysicalData<<<dataMovementGrid, dataMovementBlk, 0, streams[l%nStreams]>>>(hostData.mdx_p_rlm_rtm[l], hostData.mdx_n_rlm_rtm[l], fwdTransBuf.d_vr_p_0, fwdTransBuf.d_vr_p_1, fwdTransBuf.d_vr_p_2, fwdTransBuf.d_vr_n_0, fwdTransBuf.d_vr_n_1, deviceInput.vr_rtm, constants); 
+//    tmpDebug<<<1,1>>>(fwdTransBuf.d_vr_p_0, deviceInput.vr_rtm, constants);
     cublasStatusCheck(cublasDgemv(handle, CUBLAS_OP_N, constants.nvector * constants.nidx_rtm[0], constants.nidx_rtm[1], &alpha, fwdTransBuf.d_vr_p_0, constants.nvector * constants.nidx_rtm[0], &deviceInput.p_rtm[constants.nidx_rtm[1]*l], 1, &beta, &fwdTransBuf.pol_e[constants.nvector*constants.nidx_rlm[0]*l], 1));
 
     cublasStatusCheck(cublasDgemv(handle, CUBLAS_OP_N, constants.nvector * constants.nidx_rtm[0], constants.nidx_rtm[1], &alpha, fwdTransBuf.d_vr_p_1, constants.nvector * constants.nidx_rtm[0], &deviceInput.dP_rtm[constants.nidx_rtm[1]*l], 1, &beta, &fwdTransBuf.dpoldt_e[constants.nvector*constants.nidx_rlm[0]*l], 1));
@@ -1056,6 +1065,7 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
     cublasStatusCheck(cublasDgemv(handle, CUBLAS_OP_N, constants.nvector * constants.nidx_rtm[0], constants.nidx_rtm[1], &alpha, fwdTransBuf.d_vr_p_2, constants.nvector * constants.nidx_rtm[0], &deviceInput.dP_rtm[constants.nidx_rtm[1]*l], 1, &beta, &fwdTransBuf.dtordp_e[constants.nvector*constants.nidx_rlm[0]*l], 1));
   }
 
+  cudaDevSync();
   //sp2
   beta = -1;
   cublasStatusCheck(cublasDgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, constants.nidx_rlm[0]*constants.nvector, constants.nidx_rlm[1], &alpha, fwdTransBuf.dpoldt_e, constants.nidx_rlm[0]*constants.nvector, &beta, fwdTransBuf.dpoldp_e, constants.nidx_rlm[0]*constants.nvector, fwdTransBuf.dpoldt_e, constants.nidx_rlm[0]*constants.nvector));
@@ -1065,19 +1075,63 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   cublasStatusCheck(cublasDgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, constants.nidx_rlm[0]*constants.nvector, constants.nidx_rlm[1], &alpha, fwdTransBuf.dtordt_e, constants.nidx_rlm[0]*constants.nvector, &beta, fwdTransBuf.dtordp_e, constants.nidx_rlm[0]*constants.nvector, fwdTransBuf.dtordt_e, constants.nidx_rlm[0]*constants.nvector));
   
   setSpectralData<<<setDataGrid, dataMovementBlk>>>(fwdTransBuf.pol_e, fwdTransBuf.dpoldt_e, fwdTransBuf.dtordt_e, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, constants);
-#else
-  dim3 grid(constants.nidx_rlm[1],1,1);
-  dim3 block(constants.nvector, constants.nidx_rtm[0],1);
-
-  transF_vec<<<grid, block, 0, streams[0]>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, constants);
-//  transF_vec_unpaired<<<constants.nSingletons, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[0]>>> (deviceInput.unpairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
-//  transF_vec_paired<<<constants.nPairs, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[1]>>> (deviceInput.pairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
-#endif
 
 #ifdef CUDA_TIMINGS
   cudaDevSync();
-  transF_v.endTimer();
+  transF_v_cublas.endTimer();
+#endif
+#endif
+}
 
+void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
+  //ToDo: Ponder this: if not exact, what are the consequences?
+  //Extremeley important! *****
+  //int itemsPerThread = constants.nidx_rtm[1]/blockSize; 
+  //std::assert(itemsPerThread*blockSize == constants.nidx_rtm[1]);
+  //std::assert(minGridSize <= constants.nidx_rlm[1]);
+#ifdef CUB
+  static int nShells = constants.nidx_rtm[0];
+
+  constants.ncomp = *ncomp;
+  constants.nscalar= *nscalar;
+  constants.nvector = *nvector;
+
+#ifdef CUDA_TIMINGS
+  static Timer transF_v_cub("fwd vector algorithm CUB");
+  cudaPerformance.registerTimer(&transF_v_cub);
+  transF_v_cub.startTimer();
+#endif
+
+  dim3 grid(constants.nidx_rlm[1],nShells,1);
+  transF_vec_cub< 192, 4, 13,
+                  cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
+            <<<grid, 192>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
+                        deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
+                        deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, 
+                        constants);
+/*  transF_vec_reduction< 32, 3,
+                  cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
+                      double>
+            <<<grid, 32>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
+                        deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
+                        deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, 
+                        constants);
+*/
+
+#ifdef CUDA_TIMINGS
+  cudaDevSync();
+  transF_v_cub.endTimer();
+#endif
+#endif
+}
+
+void legendre_f_trans_scalar_cuda_(int *ncomp, int *nvector, int *nscalar) {
+  static int nShells = constants.nidx_rtm[0];
+
+  constants.ncomp = *ncomp;
+  constants.nscalar= *nscalar;
+  constants.nvector = *nvector;
+#ifdef CUDA_TIMINGS
   static Timer transF_s("Fwd scalar algorithm ");
   cudaPerformance.registerTimer(&transF_s);
   transF_s.startTimer();
@@ -1092,5 +1146,4 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   cudaDevSync();
   transF_s.endTimer();
 #endif
-  
 }

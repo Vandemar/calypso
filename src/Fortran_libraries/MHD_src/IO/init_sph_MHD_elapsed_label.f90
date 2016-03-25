@@ -32,7 +32,7 @@
 #if defined(CUDA)
       num_elapsed = 56
 #if defined(CUDA_TIMINGS)
-      num_elapsed = 67
+      num_elapsed = 68
 #endif
 #else
       num_elapsed = 54
@@ -111,7 +111,7 @@
       elapse_labels(57) = 'cpy sp_rlm host2dev for bwd. trans.'
       elapse_labels(58) = 'cpy vr_rtm dev2host for bwd. trans.'
       elapse_labels(59) = 'LGP bwd transform'
-      elapse_labels(60) = 'LGP fwd transform'
+      elapse_labels(60) = 'LGP fwd vector transform'
       elapse_labels(61) = 'Mem free on Dev & host 4 leg. transi.'
       elapse_labels(62) = 'Mem alloc of grid & harmonic space CPU'
       elapse_labels(63) = 'initalization of GPU'
@@ -119,6 +119,7 @@
       elapse_labels(65) = 'cpy sp_rlm dev2host for fwd. trans.'
       elapse_labels(66) = 'Mem alloc on GPU'  
       elapse_labels(67) = 'MemCpy to GPU for leg_trans'  
+      elapse_labels(68) = 'LGP fwd scalar transform'
 #endif
 #endif
       end subroutine set_sph_MHD_elapsed_label
@@ -139,7 +140,7 @@
         call reset_eleps_time(i)
       end do
 #if defined(CUDA_TIMINGS)
-      do i = 57, 67
+      do i = 57, 68
         call reset_eleps_time(i)
       end do
 #endif

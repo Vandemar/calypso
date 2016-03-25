@@ -41,7 +41,12 @@ ENDIF(CUB)
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE} ${CUDA_LIBRARY_FLAGS} )
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE} -maxrregcount 44)
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE} -Xptxas -dlcm=cg)
-cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE})
+IF(BUILD_SHARED_LIBS)
+  cuda_add_library( cudaLib ${CUDA_SRC_FILES} SHARED OPTIONS ${GENCODE} -Xcompiler -fPIC)
+ELSE()
+cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE})
+ENDIF(BUILD_SHARED_LIBS)
+
 IF(CMAKE_BUILD_TYPE MATCHES DEBUG)
   set_target_properties(cudaLib PROPERTIES LINK_FLAGS
 "${CUDA_LIBRARY_FLAGS};-DCUDA_DEBUG")

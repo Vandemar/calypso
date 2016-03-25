@@ -58,9 +58,14 @@ extern __constant__ int lstack_rlm_cmem[1000];
 // Fortran function calls
 extern "C" {
   void legendre_b_trans_cuda_(int*, int*, int*);
-  void legendre_f_trans_cuda_(int*, int*, int*);
+  void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar);
+  void legendre_f_trans_scalar_cuda_(int *ncomp, int *nvector, int *nscalar);
 #ifdef CUBLAS
-  void fwd_sht_w_cublas_( double *vr_rtm, double *sp_rlm);
+//  void fwd_sht_w_cublas_( double *vr_rtm, double *sp_rlm);
+  void legendre_f_trans_vector_cublas_(int *ncomp, int *nvector, int *nscalar);
+#endif
+#ifdef CUB
+  void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar);
 #endif
 }
 
@@ -375,3 +380,4 @@ __global__ void tmpDebug(double* vr_p_0, double* vr_rtm, const Geometry_c consta
 #else
 __global__ void normalizeLegendre(double *P_rtm, double *dP_rtm, double *g_sph_rlm_7, double *weight_rtm, const Geometry_c constants);
 #endif
+

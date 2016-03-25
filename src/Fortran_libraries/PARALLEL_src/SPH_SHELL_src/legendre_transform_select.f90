@@ -292,6 +292,20 @@
         call start_eleps_time(62)
         call allocate_work_sph_trans(ncomp)
         call end_eleps_time(62)
+#ifdef CUB
+      else if(id_legendre_transfer .eq. iflag_leg_cub) then
+! Host data
+        call start_eleps_time(62)
+        call allocate_work_sph_trans(ncomp)
+        call end_eleps_time(62)
+#endif
+#ifdef CUBLAS
+      else if(id_legendre_transfer .eq. iflag_leg_cublas) then
+! Host data
+        call start_eleps_time(62)
+        call allocate_work_sph_trans(ncomp)
+        call end_eleps_time(62)
+#endif
 #endif
       else
         call allocate_work_sph_trans(ncomp)
@@ -463,7 +477,7 @@
 #endif
 #ifdef CUB
       else if(id_legendre_transfer .eq. iflag_leg_cub) then           
-        call leg_forward_trans_cuda(ncomp, nvector, nscalar,        &
+        call leg_forward_trans_cub(ncomp, nvector, nscalar,        &
      &      n_WR, n_WS, WR, WS)
 #endif
 #ifdef CUBLAS

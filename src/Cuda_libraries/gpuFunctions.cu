@@ -207,7 +207,7 @@ void initialize_leg_trans_gpu_() {
   unsigned int numberOfDoubles = memAllocation/(sizeof(double));
   unsigned int numberOfReductionSpaces = min(numberOfDoubles/(constants.nidx_rtm[1]*3), constants.nidx_rtm[1]);
   //streams = (cudaStream_t*) malloc (sizeof(cudaStream_t) * numberOfReductionSpaces)
-  numberOfReductionSpaces=2;
+  numberOfReductionSpaces=32;
   streams = new cudaStream_t[numberOfReductionSpaces];
   for(int i=0; i<numberOfReductionSpaces; i++) {
     cudaErrorCheck(cudaStreamCreate(&streams[i]));

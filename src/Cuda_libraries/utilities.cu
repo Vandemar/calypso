@@ -26,7 +26,7 @@ void cudaErrorCheck(cufftResult error) {
 }
 
 void cublasStatusCheck(cublasStatus_t stat) {
-  if ( strcmp(_cublasGetErrorEnum(stat),"cublasSuccess") != 0 ) {
+  if ( strcmp(_cublasGetErrorEnum(stat),"CUBLAS_STATUS_SUCCESS") != 0 ) {
     printf("%s\n", _cublasGetErrorEnum(stat));
   }
   return;

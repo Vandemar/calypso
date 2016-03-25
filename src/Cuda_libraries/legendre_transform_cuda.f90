@@ -147,11 +147,11 @@
       call end_eleps_time(64)
 #endif
 
-      if(nvector .gt. 0 .OR. nscalar .gt. 0) then
+      if(nvector .gt. 0) then
 #if defined(CUDA_TIMINGS)
         call start_eleps_time(60)
 #endif
-        call legendre_f_trans_cuda(ncomp, nvector, nscalar) 
+        call legendre_f_trans_vector_cuda(ncomp, nvector, nscalar) 
 #if defined(CUDA_TIMINGS)
         call sync_device
         call end_eleps_time(60)
@@ -161,12 +161,21 @@
      &       , sp_rlm_wk(1))
 #endif
       end if
-#if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
+
       if(nscalar .gt. 0) then
+#if defined(CUDA_TIMINGS)
+        call start_eleps_time(68) 
+#endif
+        call legendre_f_trans_scalar_cuda(ncomp, nvector, nscalar) 
+#if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
         call legendre_f_trans_scalar_org                                &
      &     (ncomp, nvector, nscalar, vr_rtm_wk(1), sp_rlm_wk(1))
-      end if
 #endif
+#if defined(CUDA_TIMINGS)
+        call sync_device
+        call end_eleps_time(65) 
+#endif
+      end if
 
 #if defined(CUDA_TIMINGS)
         call start_eleps_time(65) 
@@ -220,11 +229,11 @@
       call end_eleps_time(64)
 #endif
 
-      if(nvector .gt. 0 .OR. nscalar .gt. 0) then
+      if(nvector .gt. 0) then
 #if defined(CUDA_TIMINGS)
         call start_eleps_time(60)
 #endif
-        call legendre_f_trans_cuda(ncomp, nvector, nscalar) 
+        call legendre_f_trans_vector_cublas(ncomp, nvector, nscalar) 
 #if defined(CUDA_TIMINGS)
         call sync_device
         call end_eleps_time(60)
@@ -234,12 +243,21 @@
      &       , sp_rlm_wk(1))
 #endif
       end if
-#if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
+
       if(nscalar .gt. 0) then
+#if defined(CUDA_TIMINGS)
+        call start_eleps_time(68) 
+#endif
+        call legendre_f_trans_scalar_cuda(ncomp, nvector, nscalar) 
+#if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
         call legendre_f_trans_scalar_org                                &
      &     (ncomp, nvector, nscalar, vr_rtm_wk(1), sp_rlm_wk(1))
-      end if
 #endif
+#if defined(CUDA_TIMINGS)
+        call sync_device
+        call end_eleps_time(65) 
+#endif
+      end if
 
 #if defined(CUDA_TIMINGS)
         call start_eleps_time(65) 
@@ -264,4 +282,85 @@
 !
       end subroutine leg_forward_trans_cublas
 
+      subroutine leg_forward_trans_cub                               &
+     &         (ncomp, nvector, nscalar, n_WR, n_WS, WR, WS)
+      use m_work_4_sph_trans_spin
+      use spherical_SRs_N
+      use cuda_optimizations
+      use m_spheric_param_smp
+      use legendre_fwd_trans_org 
+!
+      integer(kind = kint), intent(in) :: ncomp, nvector, nscalar
+      integer(kind = kint), intent(in) :: n_WR, n_WS
+      real (kind=kreal), intent(inout):: WR(n_WR)
+      real (kind=kreal), intent(inout):: WS(n_WS)
+!
+!
+      call calypso_rtm_from_recv_N(ncomp, n_WR, WR, vr_rtm_wk(1))
+#if defined(CUDA_DEBUG)
+      call clear_fwd_legendre_work(ncomp)
+#endif
+!
+      call clear_spectrum_data(ncomp)
+#if defined(CUDA_TIMINGS)
+      call start_eleps_time(64) 
+#endif
+      call cpy_physical_dat_2_gpu(ncomp, vr_rtm_wk(1)) 
+#if defined(CUDA_TIMINGS)
+      call sync_device
+      call end_eleps_time(64)
+#endif
+
+      if(nvector .gt. 0) then
+#if defined(CUDA_TIMINGS)
+        call start_eleps_time(60)
+#endif
+        call legendre_f_trans_vector_cub(ncomp, nvector, nscalar) 
+#if defined(CUDA_TIMINGS)
+        call sync_device
+        call end_eleps_time(60)
+#endif
+#if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
+          call legendre_f_trans_vector_org(ncomp, nvector, vr_rtm_wk(1) &
+     &       , sp_rlm_wk(1))
+#endif
+      end if
+
+      if(nscalar .gt. 0) then
+#if defined(CUDA_TIMINGS)
+        call start_eleps_time(68) 
+#endif
+        call legendre_f_trans_scalar_cuda(ncomp, nvector, nscalar) 
+#if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
+        call legendre_f_trans_scalar_org                                &
+     &     (ncomp, nvector, nscalar, vr_rtm_wk(1), sp_rlm_wk(1))
+#endif
+#if defined(CUDA_TIMINGS)
+        call sync_device
+        call end_eleps_time(65) 
+#endif
+      end if
+
+#if defined(CUDA_TIMINGS)
+        call start_eleps_time(65) 
+#endif
+#if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
+         call cpy_spec_dev2host_4_debug(ncomp)
+#elif defined(CUDA_OPTIMIZED)
+        call cpy_spectrum_dat_from_gpu(ncomp, sp_rlm_wk(1))
+#endif
+#if defined(CUDA_TIMINGS)
+        call sync_device
+        call end_eleps_time(65) 
+#endif
+!
+
+#if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
+        call check_fwd_trans_cuda(my_rank, sp_rlm_wk(1))
+#endif
+!
+      call finish_send_recv_rtp_2_rtm
+      call calypso_rlm_to_send_N(ncomp, n_WS, sp_rlm_wk(1), WS)
+!
+      end subroutine leg_forward_trans_cub
       end module legendre_transform_cuda

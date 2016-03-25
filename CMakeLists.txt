@@ -79,9 +79,10 @@ IF (CUDA_FOUND)
 ENDIF(CUDA_FOUND)
 
 #Need to set this s.t when user specifies Degug mode, these flags are set
-set (CMAKE_Fortran_FLAGS_DEBUG "-O0 -g")
-set (CMAKE_CXX_FLAGS_DEBUG "-lstdc++;-DCUDA_DEBUG")
-set (CMAKE_CXX_FLAGS_RELEASE "-lstdc++;-DCUDA_OPTIMIZED")
+set (CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -DCUDA_DEBUG")
+#set (CUDA_PROPAGATE_HOST_FLAGS ON)
+#set (CMAKE_CXX_FLAGS_DEBUG "-lstdc++;-fPIC")
+#set (CMAKE_CXX_FLAGS_RELEASE "-lstdc++;-DCUDA_OPTIMIZED")
 
 # Recurse into the "src" subdirectory
 ADD_SUBDIRECTORY (src) 
