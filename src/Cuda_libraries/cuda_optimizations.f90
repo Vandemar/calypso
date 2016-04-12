@@ -16,13 +16,57 @@
         use legendre_bwd_trans_org
 
         implicit none
-
+ 
+#ifdef CUDA_DEBUG
+!>      field data for Legendre transform  @f$ f(r,\theta,m) @f$ 
+!!@n     size:  vr_rtm(ncomp*nidx_rtm(2)*nidx_rtm(1)*nidx_rtm(3))
+!      real(kind = kreal), allocatable :: vr_rtm_wk_debug(:)
+!
+!>      Spectr data for Legendre transform  @f$ f(r,l,m) @f$ 
+!>@n      size: sp_rlm(ncomp*nidx_rlm(2)*nidx_rtm(1))
+      real(kind = kreal), allocatable :: sp_rlm_wk_debug(:)
+#endif
+   
         contains
       
         subroutine calypso_gpu_init
           call initialize_gpu
         end subroutine calypso_gpu_init
-       
+
+        subroutine alloc_mem_4_gpu_debug(ncomp)
+          integer(kind = kint), intent(in) :: ncomp
+
+#ifdef CUDA_DEBUG       
+          allocate(sp_rlm_wk_debug(nnod_rlm*ncomp))
+!          allocate(vr_rtm_wk_debug(nnod_rtm*ncomp))    
+          
+          if(ncomp .le. 0) return
+!$omp parallel workshare
+            sp_rlm_wk_debug(1:nnod_rlm*ncomp) = 0.0d0
+!$omp end parallel workshare
+#endif          
+        end subroutine alloc_mem_4_gpu_debug
+ 
+        subroutine clear_fwd_leg_work_debug(ncomp)
+          integer(kind = kint), intent(in) :: ncomp
+        
+#ifdef CUDA_DEBUG       
+          if(ncomp .le. 0) return
+!$omp parallel workshare
+            sp_rlm_wk_debug(1:nnod_rlm*ncomp) = 0.0d0
+!$omp end parallel workshare
+#endif          
+        end subroutine clear_fwd_leg_work_debug
+
+        subroutine dealloc_mem_4_gpu_debug(ncomp)
+
+          integer(kind = kint), intent(in) :: ncomp
+#ifdef CUDA_DEBUG       
+          deallocate(sp_rlm_wk)
+!          deallocate(sp_rlm_wk, vr_rtm_wk)
+#endif
+        end subroutine dealloc_mem_4_gpu_debug
+
         subroutine set_mem_4_gpu
           call setPtrs(idx_gl_1d_rlm_j(1,1))  
           call cpy_schmidt_2_gpu(P_jl(1,1), dPdt_jl(1,1), P_rtm(1,1),   &
@@ -65,6 +109,9 @@
         end subroutine cpy_physical_dat_2_gpu
 
         subroutine calypso_gpu_finalize
+#ifdef CUDA_DEBUG
+          call dealloc_mem_4_gpu_debug(ncomp_sph_trans)
+#endif
           call cleangpu
         end subroutine calypso_gpu_finalize
   

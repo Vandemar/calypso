@@ -87,6 +87,10 @@
 #endif
       call alloc_space_on_gpu                                        &
      &    (ncomp_sph_trans, nvector_sph_trans, nscalar_sph_trans)
+#ifdef CUDA_DEBUG
+      call alloc_mem_4_gpu_debug(ncomp_sph_trans)
+#endif
+ 
       call initialize_leg_trans_gpu
 #if defined(CUDA_TIMINGS)
       call sync_device
@@ -172,6 +176,8 @@
 #ifdef CUDA
         else if(id_legendre_transfer .eq. iflag_leg_cuda) then
           write(tmpchara,'(a)') trim(leg_cuda)
+        else if(id_legendre_transfer .eq. iflag_leg_cuda_and_org) then
+          write(tmpchara,'(a)') trim(leg_cuda_and_org)
 #endif
         end if
         call change_2_upper_case(tmpchara)
@@ -353,9 +359,10 @@
       real(kind = kreal) :: endtime(ntype_Leg_trans_loop)
       real(kind = kreal) :: etime_trans(ntype_Leg_trans_loop)
 !
-      integer(kind = kint) :: iloop_type
+      integer(kind = kint) :: iloop_type, nloops, i
 !
 !
+      nloops=10
       do iloop_type = 1, ntype_Leg_trans_loop
         id_legendre_transfer = iloop_type
         if(my_rank .eq. 0) write(*,*)                                   &
@@ -364,8 +371,10 @@
      &      (ncomp_sph_trans, nvector_sph_trans, nscalar_sph_trans)
 !
         starttime = MPI_WTIME()
-        call sph_back_trans_4_MHD
-        call sph_forward_trans_4_MHD
+        do i = 1, nloops 
+          call sph_back_trans_4_MHD
+          call sph_forward_trans_4_MHD
+        end do
         endtime(id_legendre_transfer) = MPI_WTIME() - starttime
 !
         call sel_finalize_legendre_trans
@@ -374,7 +383,7 @@
       call MPI_allREDUCE (endtime, etime_trans, ntype_Leg_trans_loop,   &
      &    CALYPSO_REAL, MPI_SUM, CALYPSO_COMM, ierr_MPI)
       etime_trans(1:ntype_Leg_trans_loop)                               &
-     &      = etime_trans(1:ntype_Leg_trans_loop) / dble(nprocs)
+     &  = etime_trans(1:ntype_Leg_trans_loop) / (dble(nprocs)*nloops) 
 !
       id_legendre_transfer = iflag_leg_orginal_loop
       etime_shortest =       etime_trans(iflag_leg_orginal_loop)
@@ -414,12 +423,14 @@
 #ifdef CUDA
         write(*,*) '13: elapsed by CUDA : ',          &
      &            etime_trans(iflag_leg_cuda)
+        write(*,*) '14: elapsed by CUDA_AND_ORG : ',          &
+     &            etime_trans(iflag_leg_cuda_and_org)
 #ifdef CUB
-        write(*,*) '14: elapsed by CUB : ',          &
+        write(*,*) '15: elapsed by CUB : ',          &
      &            etime_trans(iflag_leg_cub)
 #endif
 #ifdef CUBLAS
-        write(*,*) '15: elapsed by CUBLAS : ',          &
+        write(*,*) '16: elapsed by CUBLAS : ',          &
      &            etime_trans(iflag_leg_cublas)
 #endif
 #endif

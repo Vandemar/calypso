@@ -50,13 +50,13 @@
 !
 !
 #if defined(CUDA) && defined(CUB) && defined(CUBLAS)
-      integer(kind = kint), parameter :: ntype_Leg_trans_loop = 15
+      integer(kind = kint), parameter :: ntype_Leg_trans_loop = 16
 #elif defined(CUB)
-      integer(kind = kint), parameter :: ntype_Leg_trans_loop = 14
+      integer(kind = kint), parameter :: ntype_Leg_trans_loop = 15
 #elif defined(CUBLAS)
-      integer(kind = kint), parameter :: ntype_Leg_trans_loop = 14
+      integer(kind = kint), parameter :: ntype_Leg_trans_loop = 15
 #elif CUDA
-      integer(kind = kint), parameter :: ntype_Leg_trans_loop = 13
+      integer(kind = kint), parameter :: ntype_Leg_trans_loop = 14
 #else
       integer(kind = kint), parameter :: ntype_Leg_trans_loop = 12
 #endif
@@ -118,6 +118,8 @@
 !@n     with CUDA 
       character(len = kchara), parameter                                &
      &           :: leg_cuda =    'CUDA'
+      character(len = kchara), parameter                                &
+     &           :: leg_cuda_and_org =    'CUDA_AND_ORG'
 #ifdef CUB
 !>      Character flag to perform Legendre transform 
 !@n     with Cuda UnBound Library 
@@ -174,15 +176,16 @@
 !>      integer flag to perform Legendre transform 
 !@n     with CUDA 
       integer(kind = kint), parameter :: iflag_leg_cuda =  13
+      integer(kind = kint), parameter :: iflag_leg_cuda_and_org =  14
 #ifdef CUB
 !>      integer flag to perform Legendre transform 
 !@n     with Cuda UnBound Library 
-      integer(kind = kint), parameter :: iflag_leg_cub =  14
+      integer(kind = kint), parameter :: iflag_leg_cub =  15
 #endif
 #ifdef CUBLAS
 !>      integer flag to perform Legendre transform 
 !@n     with CUDA BLAS Library 
-      integer(kind = kint), parameter :: iflag_leg_cublas =  15
+      integer(kind = kint), parameter :: iflag_leg_cublas =  16
 #endif
 #endif
 !>      integer flag to perform Legendre transform 
@@ -238,7 +241,9 @@
 #ifdef CUDA
       else if(cmp_no_case(tranx_loop_ctl, leg_cuda)) then
         id_legendre_transfer = iflag_leg_cuda
-#ifdef CUB
+      else if(cmp_no_case(tranx_loop_ctl, leg_cuda_and_org)) then
+        id_legendre_transfer = iflag_leg_cuda_and_org
+#ifdef CUB_and_org
       else if(cmp_no_case(tranx_loop_ctl, leg_cub)) then
         id_legendre_transfer = iflag_leg_cub
 #endif
@@ -408,7 +413,8 @@
         call leg_backward_trans_blocked(ncomp, nvector, nscalar,        &
      &      n_WR, n_WS, WR, WS)
 #ifdef CUDA
-      else if(id_legendre_transfer .eq. iflag_leg_cuda) then
+      else if(id_legendre_transfer .eq. iflag_leg_cuda                  &
+     &      .or. id_legendre_transfer .eq. iflag_leg_cuda_and_org) then
         call leg_backward_trans_cuda(ncomp, nvector, nscalar,        &
      &      n_WR, n_WS, WR, WS)
 #endif
@@ -473,6 +479,9 @@
 #ifdef CUDA
       else if(id_legendre_transfer .eq. iflag_leg_cuda) then           
         call leg_forward_trans_cuda(ncomp, nvector, nscalar,        &
+     &      n_WR, n_WS, WR, WS)
+      else if(id_legendre_transfer .eq. iflag_leg_cuda_and_org) then 
+        call leg_forward_trans_cuda_and_org(ncomp, nvector, nscalar,    &
      &      n_WR, n_WS, WR, WS)
 #endif
 #ifdef CUB

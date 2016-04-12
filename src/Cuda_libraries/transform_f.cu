@@ -55,10 +55,10 @@ void find_optimal_algorithm_(int *ncomp, int *nvector, int *nscalar) {
 }
 
 __global__
-void transF_vec(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *asin_theta_1d_rtm, const Geometry_c constants) {
+void transF_vec_org(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *asin_theta_1d_rtm, const Geometry_c constants) {
   //dim3 grid(constants.nidx_rlm[1],1,1);
   //dim3 block(constants.nvector, constants.nidx_rtm[0],1,1);
-  int k_rtm = threadIdx.y;
+  int k_rtm = kst + threadIdx.y - 1;
   //int j_rlm = blockIdx.x;
 
 // 3 for m-1, m, m+1
@@ -1003,7 +1003,7 @@ void transF_scalar_reduction(double *vr_rtm, double *sp_rlm, double *weight_rtm,
 }*/
 
 
-void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar) {
+void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar, int *kst, int *ked) {
   static int nShells = constants.nidx_rtm[0];
 
   constants.ncomp = *ncomp;
@@ -1018,9 +1018,10 @@ void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar) {
 #endif
 
   dim3 grid(constants.nidx_rlm[1],1,1);
-  dim3 block(constants.nvector, constants.nidx_rtm[0],1);
+  //dim3 block(constants.nvector, constants.nidx_rtm[0],1);
+  dim3 block(constants.nvector, *ked - *kst +1 ,1);
 
-  transF_vec<<<grid, block, 0, streams[0]>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, constants);
+  transF_vec_org<<<grid, block, 0, streams[0]>>> (*kst, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, constants);
 //  transF_vec_unpaired<<<constants.nSingletons, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[0]>>> (deviceInput.unpairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 //  transF_vec_paired<<<constants.nPairs, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[1]>>> (deviceInput.pairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 
@@ -1103,9 +1104,9 @@ void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
 #endif
 
   dim3 grid(constants.nidx_rlm[1],nShells,1);
-  transF_vec_cub< 192, 4, 13,
+  transF_vec_cub< 96, 4, 13,
                   cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
-            <<<grid, 192>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
+            <<<grid, 96>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
                         deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
                         deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, 
                         constants);

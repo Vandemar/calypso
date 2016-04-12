@@ -99,6 +99,7 @@
 !
 !  -------------------------------
 !
+#ifndef CUDA_DEBUG
       if(iflag_debug.gt.0) write(*,*)' sph_initial_data_control'
       call sph_initial_data_control
 !
@@ -127,6 +128,7 @@
       call open_sph_vol_rms_file_mhd
       call end_eleps_time(4)
 !
+#endif
       end subroutine SPH_initialize_MHD
 !
 ! ----------------------------------------------------------------------
