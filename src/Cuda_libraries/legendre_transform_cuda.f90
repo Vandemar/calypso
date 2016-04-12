@@ -316,9 +316,9 @@
         call start_eleps_time(60)
 #endif
         call legendre_f_trans_vector_cuda(ncomp, nvector, nscalar,      &
-     &                        nidx_rtm(1)/8, nidx_rtm(1)) 
+     &                        nidx_rtm(1)/4, nidx_rtm(1)) 
         call legendre_f_trans_vector_org_4_cuda(ncomp, nvector,         &
-     &          vr_rtm_wk(1), sp_rlm_wk(1), nidx_rtm(1)/8)
+     &          vr_rtm_wk(1), sp_rlm_wk(1), nidx_rtm(1)/4)
 #if defined(CUDA_TIMINGS)
         call sync_device
         call end_eleps_time(60)
@@ -348,7 +348,7 @@
         call start_eleps_time(65) 
 #endif
         call retrieve_spectrum_data_cuda_and_org(sp_rlm_wk(1),    &
-     &              ncomp, nidx_rtm(1)/8, nidx_rtm(1))
+     &              ncomp, nidx_rtm(1)/4, nidx_rtm(1))
 #if defined(CUDA_TIMINGS)
         call sync_device
         call end_eleps_time(65) 

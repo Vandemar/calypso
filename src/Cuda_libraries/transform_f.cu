@@ -1011,11 +1011,11 @@ void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar, int *
   constants.nvector = *nvector;
 
 
-#ifdef CUDA_TIMINGS
-  static Timer transF_v("fwd vector algorithm CUDA");
-  cudaPerformance.registerTimer(&transF_v);
-  transF_v.startTimer();
-#endif
+//#ifdef CUDA_TIMINGS
+//  static Timer transF_v("fwd vector algorithm CUDA");
+//  cudaPerformance.registerTimer(&transF_v);
+//  transF_v.startTimer();
+//#endif
 
   dim3 grid(constants.nidx_rlm[1],1,1);
   //dim3 block(constants.nvector, constants.nidx_rtm[0],1);
@@ -1025,10 +1025,10 @@ void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar, int *
 //  transF_vec_unpaired<<<constants.nSingletons, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[0]>>> (deviceInput.unpairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 //  transF_vec_paired<<<constants.nPairs, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[1]>>> (deviceInput.pairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 
-#ifdef CUDA_TIMINGS
-  cudaDevSync();
-  transF_v.endTimer();
-#endif
+//#ifdef CUDA_TIMINGS
+//  cudaDevSync();
+//  transF_v.endTimer();
+//#endif
 
   
 }
