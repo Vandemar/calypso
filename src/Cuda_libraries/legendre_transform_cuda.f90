@@ -380,6 +380,7 @@
       real (kind=kreal), intent(inout):: WS(n_WS)
 !
 !
+#ifdef CUBLAS
       call calypso_rtm_from_recv_N(ncomp, n_WR, WR, vr_rtm_wk(1))
 #if defined(CUDA_DEBUG)
       call clear_fwd_legendre_work(ncomp)
@@ -445,6 +446,7 @@
 !
       call finish_send_recv_rtp_2_rtm
       call calypso_rlm_to_send_N(ncomp, n_WS, sp_rlm_wk(1), WS)
+#endif
 !
       end subroutine leg_forward_trans_cublas
 
@@ -462,6 +464,7 @@
       real (kind=kreal), intent(inout):: WS(n_WS)
 !
 !
+#ifdef CUB
       call calypso_rtm_from_recv_N(ncomp, n_WR, WR, vr_rtm_wk(1))
 #if defined(CUDA_DEBUG)
       call clear_fwd_legendre_work(ncomp)
@@ -527,6 +530,7 @@
 !
       call finish_send_recv_rtp_2_rtm
       call calypso_rlm_to_send_N(ncomp, n_WS, sp_rlm_wk(1), WS)
+#endif CUB
 !
       end subroutine leg_forward_trans_cub
       end module legendre_transform_cuda
