@@ -117,7 +117,7 @@
 !
 ! -----------------------------------------------------------------------
 !
-      subroutine leg_backward_trans_cuda_org                            &
+      subroutine leg_backward_trans_cuda_and_org                        &
      &         (ncomp, nvector, nscalar, n_WR, n_WS, WR, WS)
 !
       use m_work_4_sph_trans_spin
@@ -132,13 +132,16 @@
       real (kind=kreal), intent(inout):: WS(n_WS)
 !
 !
+      write(*,*) 'I am doing it!'
       call calypso_rlm_from_recv_N(ncomp, n_WR, WR, sp_rlm_wk(1))
-#if defined(CUDA_DEBUG)
+
       call clear_bwd_legendre_work(ncomp)
-#endif
-      
-!
       call clear_field_data(ncomp)
+
+#ifdef CUDA_DEBUG
+      call clear_bwd_leg_work_debug(ncomp)
+#endif
+
 #if defined(CUDA_TIMINGS)
       call start_eleps_time(57) 
 #endif
@@ -153,30 +156,32 @@
         call start_eleps_time(59) 
 #endif
         call legendre_b_trans_cuda(ncomp, nvector, nscalar)
+        call legendre_b_trans_vector_org_4_cuda(ncomp, nvector,         &
+     &              sp_rlm_wk(1), vr_rtm_wk(1), nidx_rtm(3))
 #if defined(CUDA_TIMINGS)
         call sync_device
         call end_eleps_time(59) 
 #endif
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
           call legendre_b_trans_vector_org(ncomp, nvector, sp_rlm_wk(1) &
-     &       , vr_rtm_wk(1))
+     &       , vr_rtm_wk_debug(1))
 #endif
       end if
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
       if(nscalar .gt. 0) then
         call legendre_b_trans_scalar_org                                &
-     &     (ncomp, nvector, nscalar, sp_rlm_wk(1), vr_rtm_wk(1))
+     &     (ncomp, nvector, nscalar, sp_rlm_wk(1), vr_rtm_wk_debug(1))
       end if
 #endif
 
 #if defined(CUDA_TIMINGS)
       call start_eleps_time(58) 
 #endif
-#if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
-      call cpy_field_dev2host_4_debug(ncomp)
-#else 
-      call cpy_physical_dat_from_gpu(ncomp, vr_rtm_wk(1))
-#endif
+
+!      call cpy_field_dev2host_4_debug(ncomp)
+      call retrieve_physical_data_cuda_and_org(vr_rtm_wk(1),            &
+     &                    ncomp, nidx_rtm(3)-1, nidx_rtm(3))
+
 #if defined(CUDA_TIMINGS)
       call sync_device
       call end_eleps_time(58) 
@@ -184,13 +189,14 @@
 !
 
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
-      call check_bwd_trans_cuda(my_rank, vr_rtm_wk(1), P_jl(1,1),     &
+      call check_bwd_trans_cuda_and_org(my_rank, vr_rtm_wk_debug(1),    &
+     &            vr_rtm_wk(1), P_jl(1,1),     &
      &            dPdt_jl(1,1))
 #endif
       call finish_send_recv_rj_2_rlm
       call calypso_rtm_to_send_N(ncomp, n_WS, vr_rtm_wk(1), WS(1))
 !
-      end subroutine leg_backward_trans_cuda_org
+      end subroutine leg_backward_trans_cuda_and_org
 !
 ! -----------------------------------------------------------------------
 !

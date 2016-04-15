@@ -350,10 +350,15 @@ void retrieve_spectrum_data_(double *sp_rlm, int *ncomp) {
 }
 
 void retrieve_spectrum_data_cuda_and_org_(double *sp_rlm, int *ncomp, int *kst, int *ked) {
-  // Current: 0 = vr_rtm, 1 = sp_rlm, 2 = g_sph_rlm 
   int idx = (*ncomp) * ((*kst)-1) * constants.istep_rlm[0];
   int maxIdx = (*ncomp) + (*ncomp) * ((*ked-1) * constants.istep_rlm[0] + constants.istep_rlm[1]*(constants.nidx_rlm[1]-1));
   cudaErrorCheck(cudaMemcpy(&sp_rlm[idx], &deviceInput.sp_rlm[idx], (maxIdx - idx)*sizeof(double), cudaMemcpyDeviceToHost)); 
+}
+
+void retrieve_physical_data_cuda_and_org_(double *vr_rtm, int *ncomp, int *mStart, int *mEnd) {
+  int idx = (*ncomp) * ((*mStart - 1) * constants.istep_rtm[2]);
+  int maxIdx = (*ncomp) + (*ncomp) * ((constants.nidx_rtm[1]-1)*constants.istep_rtm[1] + (constants.nidx_rtm[0]-1)*constants.istep_rtm[0] +  (*mEnd-1)*constants.istep_rtm[2]); 
+  cudaErrorCheck(cudaMemcpy(&vr_rtm[idx], &deviceInput.vr_rtm[idx], (maxIdx - idx)*sizeof(double), cudaMemcpyDeviceToHost)); 
 }
 
 void retrieve_physical_data_(double *vr_rtm, int *ncomp) {

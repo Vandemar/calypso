@@ -413,9 +413,11 @@
         call leg_backward_trans_blocked(ncomp, nvector, nscalar,        &
      &      n_WR, n_WS, WR, WS)
 #ifdef CUDA
-      else if(id_legendre_transfer .eq. iflag_leg_cuda                  &
-     &      .or. id_legendre_transfer .eq. iflag_leg_cuda_and_org) then
+      else if(id_legendre_transfer .eq. iflag_leg_cuda) then
         call leg_backward_trans_cuda(ncomp, nvector, nscalar,        &
+     &      n_WR, n_WS, WR, WS)
+      else if(id_legendre_transfer .eq. iflag_leg_cuda_and_org) then 
+        call leg_backward_trans_cuda_and_org(ncomp, nvector, nscalar,   &
      &      n_WR, n_WS, WR, WS)
 #endif
       else
