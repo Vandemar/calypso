@@ -244,7 +244,8 @@
 #if defined(CUDA_TIMINGS)
         call start_eleps_time(68) 
 #endif
-        call legendre_f_trans_scalar_cuda(ncomp, nvector, nscalar) 
+        call legendre_f_trans_scalar_cuda(ncomp, nvector, nscalar,      &
+     &                                                  1, nidx_rtm(1)) 
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
         call legendre_f_trans_scalar_org                                &
      &     (ncomp, nvector, nscalar, vr_rtm_wk(1), sp_rlm_wk(1))
@@ -333,7 +334,11 @@
 #if defined(CUDA_TIMINGS)
         call start_eleps_time(68) 
 #endif
-        call legendre_f_trans_scalar_cuda(ncomp, nvector, nscalar) 
+        call legendre_f_trans_scalar_cuda(ncomp, nvector, nscalar,      &
+                                  max(2,nidx_rtm(1)/4), nidx_rtm(1)) 
+        call legendre_f_trans_scalar_org_4_cuda                         &
+     &     (ncomp, nvector, nscalar, vr_rtm_wk(1), sp_rlm_wk(1),        &
+     &      max(2,nidx_rtm(1)/4))
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
         call legendre_f_trans_scalar_org                                &
      &     (ncomp, nvector, nscalar, vr_rtm_wk(1), sp_rlm_wk_debug(1))
@@ -348,7 +353,7 @@
         call start_eleps_time(65) 
 #endif
         call retrieve_spectrum_data_cuda_and_org(sp_rlm_wk(1),    &
-     &              ncomp, nidx_rtm(1)/4, nidx_rtm(1))
+     &              ncomp, max(2,nidx_rtm(1)/4), nidx_rtm(1))
 #if defined(CUDA_TIMINGS)
         call sync_device
         call end_eleps_time(65) 
@@ -415,7 +420,8 @@
 #if defined(CUDA_TIMINGS)
         call start_eleps_time(68) 
 #endif
-        call legendre_f_trans_scalar_cuda(ncomp, nvector, nscalar) 
+        call legendre_f_trans_scalar_cuda(ncomp, nvector, nscalar,      &
+     &                                                  1, nidx_rtm(1)) 
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
         call legendre_f_trans_scalar_org                                &
      &     (ncomp, nvector, nscalar, vr_rtm_wk(1), sp_rlm_wk(1))
@@ -499,7 +505,8 @@
 #if defined(CUDA_TIMINGS)
         call start_eleps_time(68) 
 #endif
-        call legendre_f_trans_scalar_cuda(ncomp, nvector, nscalar) 
+        call legendre_f_trans_scalar_cuda(ncomp, nvector, nscalar,      &
+     &                                             1, nidx_rtm(1))
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
         call legendre_f_trans_scalar_org                                &
      &     (ncomp, nvector, nscalar, vr_rtm_wk(1), sp_rlm_wk(1))
@@ -530,7 +537,7 @@
 !
       call finish_send_recv_rtp_2_rtm
       call calypso_rlm_to_send_N(ncomp, n_WS, sp_rlm_wk(1), WS)
-#endif CUB
+#endif
 !
       end subroutine leg_forward_trans_cub
       end module legendre_transform_cuda

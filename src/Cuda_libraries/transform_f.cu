@@ -935,7 +935,7 @@ __global__ void transF_vec_paired_tiny(symmetricModes *pairedList, const int kLo
 
 
 __global__
-void transF_scalar(int kst, double *vr_rtm, double *sp_rlm, double *weight_rtm, int *mdx_p_rlm_rtm, double *P_rtm, double *g_sph_rlm_7, const Geometry_c constants) {
+void transF_scalar(int kst, double *vr_rtm, double *sp_rlm, int *mdx_p_rlm_rtm, double *P_rtm, const Geometry_c constants) {
   int k_rtm = threadIdx.x+kst-1;
 
 // 3 for m-1, m, m+1
@@ -1126,25 +1126,25 @@ void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
 #endif
 }
 
-void legendre_f_trans_scalar_cuda_(int *ncomp, int *nvector, int *nscalar) {
-  static int nShells = constants.nidx_rtm[0];
+void legendre_f_trans_scalar_cuda_(int *ncomp, int *nvector, int *nscalar, int *kst, int *ked) {
 
   constants.ncomp = *ncomp;
   constants.nscalar= *nscalar;
   constants.nvector = *nvector;
-#ifdef CUDA_TIMINGS
+/*#ifdef CUDA_TIMINGS
   static Timer transF_s("Fwd scalar algorithm ");
   cudaPerformance.registerTimer(&transF_s);
   transF_s.startTimer();
-#endif
+#endif*/
   /*transF_scalar_reduction <32, 3, 
                      cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                      double>
                <<<grid, 32>>> (deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
 */  
-  transF_scalar<<<constants.nidx_rlm[1], nShells, 0, streams[1]>>> (1, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
-#ifdef CUDA_TIMINGS
+  dim3 block(*ked - *kst +1 ,1);
+  transF_scalar<<<constants.nidx_rlm[1], block, 0, streams[1]>>> (*kst, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, constants);
+/*#ifdef CUDA_TIMINGS
   cudaDevSync();
   transF_s.endTimer();
-#endif
+#endif*/
 }

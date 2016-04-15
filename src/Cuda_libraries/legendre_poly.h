@@ -59,7 +59,7 @@ extern __constant__ int lstack_rlm_cmem[1000];
 extern "C" {
   void legendre_b_trans_cuda_(int*, int*, int*);
   void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar, int*, int*);
-  void legendre_f_trans_scalar_cuda_(int *ncomp, int *nvector, int *nscalar);
+  void legendre_f_trans_scalar_cuda_(int *ncomp, int *nvector, int *nscalar, int*, int*);
 #ifdef CUBLAS
 //  void fwd_sht_w_cublas_( double *vr_rtm, double *sp_rlm);
   void legendre_f_trans_vector_cublas_(int *ncomp, int *nvector, int *nscalar);
@@ -299,7 +299,7 @@ __global__ void transF_vec_paired_tiny(symmetricModes *pairedList, const int kLo
 __global__ void transF_vec(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants); 
 
 __global__ void transF_vec_smem_schmidt(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, const Geometry_c constants); 
-__global__ void transF_scalar(int kst, double *vr_rtm, double *sp_rlm, double *weight_rtm, int *mdx_p_rlm_rtm, double *P_rtm, double *g_sph_rlm_7, const Geometry_c constants);
+__global__ void transF_scalar(int kst, double *vr_rtm, double *sp_rlm, int *mdx_p_rlm_rtm, double *P_rtm,  const Geometry_c constants);
 
 //Reduction Declerations
 void transformMode(int shellId, int modeId);

@@ -243,6 +243,57 @@
 !$omp end parallel do
 !
       end subroutine legendre_f_trans_scalar_org
+
+      subroutine legendre_f_trans_scalar_org_4_cuda                     &
+     &         (ncomp, nvector, nscalar, vr_rtm, sp_rlm, nshells )
+!
+      integer(kind = kint), intent(in) :: ncomp, nvector, nscalar, nshells
+      real(kind = kreal), intent(in) :: vr_rtm(ncomp*nnod_rtm)
+      real(kind = kreal), intent(inout) :: sp_rlm(ncomp*nnod_rlm)
+!
+      integer(kind = kint) :: l_rtm, ip_rtm, i_rlm, k_rtm, j_rlm
+      integer(kind = kint) :: nd, ip, kst, ked
+      real(kind = kreal) :: sp1
+      real(kind = kreal) :: Pws_l(nidx_rtm(2))
+!
+!
+!$omp parallel do schedule(static)                                      &
+!$omp&            private(j_rlm,k_rtm,nd,                    &
+!$omp&                    i_rlm,ip_rtm,l_rtm,sp1,Pws_l)
+!      do ip = 1, np_smp
+
+!        kst = idx_rlm_smp_stack(ip-1,1) + 1
+!        ked = idx_rlm_smp_stack(ip,  1)
+!
+        do k_rtm = 1, nshells-1 
+          do j_rlm = 1, nidx_rlm(2)
+            do l_rtm = 1, nidx_rtm(2)
+              Pws_l(l_rtm) = P_rtm(l_rtm,j_rlm)                         &
+     &                        * g_sph_rlm(j_rlm,6)*weight_rtm(l_rtm)
+            end do
+!
+            do nd = 1, nscalar
+              sp1 = 0.0d0
+              do l_rtm = 1, nidx_rtm(2)
+                ip_rtm =  nd + 3*nvector                                &
+     &                + ncomp*((l_rtm-1) *             istep_rtm(2)     &
+     &                    + (k_rtm-1) *                istep_rtm(1)     &
+     &                    + (mdx_p_rlm_rtm(j_rlm)-1) * istep_rtm(3))
+!
+                sp1 = sp1 + vr_rtm(ip_rtm) * Pws_l(l_rtm)
+              end do
+!
+              i_rlm = nd + 3*nvector                                    &
+     &                   + ncomp * ((j_rlm-1) * istep_rlm(2)            &
+     &                            + (k_rtm-1) * istep_rlm(1))
+              sp_rlm(i_rlm) = sp_rlm(i_rlm)  + sp1
+            end do
+          end do
+        end do
+!      end do
+!$omp end parallel do
+!
+      end subroutine legendre_f_trans_scalar_org_4_cuda
 !
 ! -----------------------------------------------------------------------
 !
