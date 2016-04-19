@@ -4,6 +4,25 @@
 
 #include "legendre_poly.h"
 //TODO: Use the logger class to write results
+
+void write2file_int_(int *data, int *ncomps, char *fileName, int *nullC) {
+  fileName[(*nullC)--] = '\0';
+  std::ofstream fp;
+  fp.open(fileName);
+  for( int i =0; i< (*ncomps); i++) {
+    fp <<  data[i] << "\n";
+  }
+  fp.close();
+}
+void write2file_(double *data, int *ncomps, char *fileName, int *nullC) {
+  fileName[(*nullC)--] = '\0';
+  std::ofstream fp;
+  fp.open(fileName);
+  for( int i =0; i< (*ncomps); i++) {
+    fp <<  data[i] << "\n";
+  }
+  fp.close();
+}
  
 void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *dP_jl) {
 

@@ -54,26 +54,25 @@ void find_optimal_algorithm_(int *ncomp, int *nvector, int *nscalar) {
   }*/
 }
 
-__global__
-void transF_vec_org(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *asin_theta_1d_rtm, const Geometry_c constants) {
-  //dim3 grid(constants.nidx_rlm[1],1,1);
-  //dim3 block(constants.nvector, constants.nidx_rtm[0],1,1);
-  int k_rtm = kst + threadIdx.y - 1;
-  //int j_rlm = blockIdx.x;
-
+__global__ void transF_vec_org(int mp_rlm_start, int *idx_gl_1d_rlm_j, double const* __restrict__ symp_r, double const* __restrict__ asmp_t, double const* __restrict__ asmp_p, double const* __restrict__ symn_t, double const* __restrict__ symn_p, double *sp_rlm, double *radius_1d_rlm_r, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *asin_theta_1d_rtm, const Geometry_c constants) {
+  //dim3 grid(min(nidx_rtm[2], 32), constants.nvector,1);
+  //dim3 block(constants.nidx_rtm[0],1,1);
+  int k_rtm = threadIdx.x;
+  int j_rlm = blockIdx.x + mp_rlm_start;
+  int index = 0;
 // 3 for m-1, m, m+1
   unsigned int ip_rtm, in_rtm;
 
   double reg0, reg1, reg2, reg3, reg4;
   double sp1, sp2, sp3; 
 
-  int order = idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + blockIdx.x];
+  int order = idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + j_rlm];
 //  int degree = idx_gl_1d_rlm_j[constants.nidx_rlm[1] + blockIdx.x];
   double r_1d_rlm_r = radius_1d_rlm_r[k_rtm]; 
 
-  int mdx_p = mdx_p_rlm_rtm[blockIdx.x] - 1;
+  int mdx_p = mdx_p_rlm_rtm[j_rlm] - 1;
   ip_rtm = k_rtm * constants.istep_rtm[0];
-  int mdx_n = mdx_n_rlm_rtm[blockIdx.x] - 1;
+  int mdx_n = mdx_n_rlm_rtm[j_rlm] - 1;
   mdx_p *= constants.istep_rtm[2];
   mdx_n *= constants.istep_rtm[2];
   mdx_p += ip_rtm;
@@ -81,33 +80,32 @@ void transF_vec_org(int kst, int *idx_gl_1d_rlm_j, double const* __restrict__ vr
 
 
   int idx;
-  int idx_p_rtm = blockIdx.x*constants.nidx_rtm[1]; 
+  int idx_p_rtm = j_rlm*constants.nidx_rtm[1]; 
  
-  int stride = constants.ncomp * constants.istep_rtm[1];
-  int idx_sp = constants.ncomp * ( blockIdx.x*constants.istep_rlm[1] + k_rtm*constants.istep_rlm[0]); 
+  int stride = constants.nvector * constants.nidx_rtm[0];
+  int idx_sp = constants.ncomp * ( j_rlm*constants.istep_rlm[1] + k_rtm*constants.istep_rlm[0]); 
 
-  ip_rtm = 3*(threadIdx.x+1) + constants.ncomp * mdx_p;
-  in_rtm = 3*(threadIdx.x+1) + constants.ncomp * mdx_n;
+  index = threadIdx.x + blockIdx.y * ( constants.nidx_rtm[0] * constants.nidx_rtm[1]) + blockIdx.x * ( constants.nidx_rtm[0] * constants.nidx_rtm[1] * constants.nvector ); 
+
   sp1=sp2=sp3=0;
   for(int l_rtm=0; l_rtm<constants.nidx_rtm[1]; l_rtm++) {
     idx = idx_p_rtm + l_rtm; 
     
     reg0 = P_rtm[idx] * asin_theta_1d_rtm[l_rtm] * (double) order;
-    reg1 = __dmul_rd(vr_rtm[ip_rtm-2], dP_rtm[idx]);
-    reg2 = __dmul_rd(vr_rtm[in_rtm-1], reg0);
-    reg3 = __dmul_rd(vr_rtm[in_rtm-2], reg0);
-    reg4 = __dmul_rd(vr_rtm[ip_rtm-1], dP_rtm[idx]);
+    reg1 = __dmul_rd(asmp_t[index], dP_rtm[idx]);
+    reg2 = __dmul_rd(symn_p[index], reg0);
+    reg3 = __dmul_rd(symn_t[index], reg0);
+    reg4 = __dmul_rd(asmp_p[index], dP_rtm[idx]);
     
 
-     sp1 = fma(vr_rtm[ip_rtm-3], P_rtm[idx], sp1);
+     sp1 = fma(symp_r[index], P_rtm[idx], sp1);
      sp2 += reg1 - reg2; 
      sp3 -= __dadd_rd(reg3, reg4); 
      
-     ip_rtm +=  stride; 
-     in_rtm +=  stride; 
+     index += constants.nidx_rtm[0];
   }
 
-  idx_sp += 3*(threadIdx.x+1); 
+  idx_sp += 3*(blockIdx.y+1); 
 
   sp_rlm[idx_sp-3] += __dmul_rd(__dmul_rd(r_1d_rlm_r, r_1d_rlm_r), sp1);
   sp_rlm[idx_sp-2] = fma(r_1d_rlm_r, sp2, sp_rlm[idx_sp-2]);
@@ -1003,7 +1001,7 @@ void transF_scalar_reduction(double *vr_rtm, double *sp_rlm, double *weight_rtm,
 }*/
 
 
-void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar, int *kst, int *ked) {
+void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar, int *mp_rlm_start, int *mp_rlm_end) {
   static int nShells = constants.nidx_rtm[0];
 
   constants.ncomp = *ncomp;
@@ -1017,11 +1015,11 @@ void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar, int *
 //  transF_v.startTimer();
 //#endif
 
-  dim3 grid(constants.nidx_rlm[1],1,1);
+  dim3 grid((*mp_rlm_end) - (*mp_rlm_start) + 1,constants.nvector,1);
   //dim3 block(constants.nvector, constants.nidx_rtm[0],1);
-  dim3 block(constants.nvector, *ked - *kst +1 ,1);
+  dim3 block(constants.nidx_rlm[0] ,1, 1);
 
-  transF_vec_org<<<grid, block, 0, streams[0]>>> (*kst, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, constants);
+  transF_vec_org<<<grid, block, 0>>> (*mp_rlm_start - 1, deviceInput.idx_gl_1d_rlm_j, deviceInput.symp_r, deviceInput.asmp_t, deviceInput.asmp_p, deviceInput.symn_t, deviceInput.symn_p, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, constants);
 //  transF_vec_unpaired<<<constants.nSingletons, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[0]>>> (deviceInput.unpairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 //  transF_vec_paired<<<constants.nPairs, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[1]>>> (deviceInput.pairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 

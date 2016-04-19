@@ -27,6 +27,7 @@ int countFT=0, countBT=0;
 int minGridSize=0, blockSize=0;
 size_t devMemory = 0;
 cudaStream_t *streams;
+//Set to max of number of radial points and 32 
 int nStreams=0;
 
 #ifdef CUBLAS
@@ -122,7 +123,8 @@ void set_constants_(int *nnod_rtp, int *nnod_rtm, int *nnod_rlm, int nidx_rtm[],
 
   constants.np_smp = *np_smp;
 
-
+  
+  nStreams=std::min(32, nidx_rtm[2]);
 
 //  #if defined(CUDA_TIMINGS)
 /*    t_1 = MPI_Wtime();
@@ -149,38 +151,23 @@ void setptrs_(int *idx_gl_1d_rlm_j) {
 void initialize_leg_trans_gpu_() {
   size_t memAllocation = 0;
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.g_colat_rtm), constants.nidx_rtm[1]*sizeof(double))); 
-  memAllocation -= constants.nidx_rtm[1]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.a_r_1d_rlm_r), constants.nidx_rtm[0]*sizeof(double))); 
-  memAllocation -= constants.nidx_rtm[0]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.asin_theta_1d_rtm), constants.nidx_rtm[1]*sizeof(double))); 
-  memAllocation -= constants.nidx_rtm[1]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.lstack_rlm), (constants.nidx_rtm[2]+1)*sizeof(int))); 
   
-  memAllocation -= (constants.nidx_rtm[2]+1)*sizeof(int);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.g_sph_rlm), constants.nidx_rlm[1]*sizeof(double))); 
-  memAllocation -= constants.nidx_rlm[1]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.g_sph_rlm_7), constants.nidx_rlm[1]*sizeof(double))); 
-  memAllocation -= constants.nidx_rlm[1]*sizeof(double);
   
   
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.idx_gl_1d_rlm_j), constants.nidx_rlm[1]*3*sizeof(int))); 
-  memAllocation -= constants.nidx_rlm[1]*3*sizeof(int);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.radius_1d_rlm_r), constants.nidx_rtm[0]*sizeof(double))); 
-  memAllocation -= constants.nidx_rtm[0]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.weight_rtm), constants.nidx_rtm[1]*sizeof(double))); 
-  memAllocation -= constants.nidx_rtm[1]*sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.mdx_p_rlm_rtm), constants.nidx_rlm[1]*sizeof(int))); 
-  memAllocation -= constants.nidx_rlm[1]*sizeof(int);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.mdx_n_rlm_rtm), constants.nidx_rlm[1]*sizeof(int))); 
-  memAllocation -= constants.nidx_rlm[1]*sizeof(int);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.p_jl), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
-  memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_jl), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
-  memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.p_rtm), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
-  memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.dP_rtm), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
-  memAllocation -= constants.nidx_rtm[1]*constants.nidx_rlm[1] * sizeof(double);
   cudaErrorCheck(cudaMalloc((void**)&(deviceInput.Pgvw), sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
   
 // Question, is loading from DRAM faster than actual calculation? 
@@ -204,14 +191,9 @@ void initialize_leg_trans_gpu_() {
     cudaErrorCheck(cudaMemset(d_debug.dP_smdt, -1, sizeof(double)*constants.nidx_rtm[1]*constants.nidx_rlm[1]));
   #endif
 
-  unsigned int numberOfDoubles = memAllocation/(sizeof(double));
-  unsigned int numberOfReductionSpaces = min(numberOfDoubles/(constants.nidx_rtm[1]*3), constants.nidx_rtm[1]);
-  //streams = (cudaStream_t*) malloc (sizeof(cudaStream_t) * numberOfReductionSpaces)
-  numberOfReductionSpaces=32;
-  streams = new cudaStream_t[numberOfReductionSpaces];
-  for(int i=0; i<numberOfReductionSpaces; i++) {
+  streams = new cudaStream_t[nStreams];
+  for(int i=0; i<nStreams; i++) {
     cudaErrorCheck(cudaStreamCreate(&streams[i]));
-    nStreams++;
   }
 //  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.reductionSpace), sizeof(double)*numberOfReductionSpaces*3*constants.nidx_rtm[1]));
 //  memAllocation -= sizeof(double)*numberOfReductionSpaces*3*constants.nidx_rtm[1];
@@ -245,15 +227,19 @@ void alloc_space_on_gpu_(int *ncmp, int *nvector, int *nscalar) {
       h_debug.sp_rlm = (double*) malloc (sizeof(double)*constants.nnod_rlm*constants.ncomp);
   #endif
 
+  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.symp_r), sizeof(double) * (constants.nidx_rtm[0] * constants.nidx_rtm[1] * constants.nvector * nStreams)));
+  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.asmp_t) , sizeof(double) * (constants.nidx_rtm[0] * constants.nidx_rtm[1] * constants.nvector * nStreams)));
+  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.asmp_p), sizeof(double) * (constants.nidx_rtm[0] * constants.nidx_rtm[1] * constants.nvector * nStreams)));
+  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.symn_t) , sizeof(double) * (constants.nidx_rtm[0] * constants.nidx_rtm[1] * constants.nvector * nStreams)));
+  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.symn_p) , sizeof(double) * (constants.nidx_rtm[0] * constants.nidx_rtm[1] * constants.nvector * nStreams)));
+  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.symp), sizeof(double) * (constants.nidx_rtm[0] * constants.nidx_rtm[1] * constants.nvector * nStreams)));
+
+//Next deallocate
   // Current: 0 = vr_rtm, 1 = sp_rlm, 2 = g_sph_rlm 
-  if(!deviceInput.vr_rtm) {
-    cudaErrorCheck(cudaMalloc((void**)&(deviceInput.vr_rtm), constants.nnod_rtm*ncomp*sizeof(double))); 
-    cudaErrorCheck(cudaMemset(deviceInput.vr_rtm, 0, constants.nnod_rtm*ncomp*sizeof(double)));
-  }
-  if(!deviceInput.sp_rlm) {
-    cudaErrorCheck(cudaMalloc((void**)&(deviceInput.sp_rlm), constants.nnod_rlm*ncomp*sizeof(double))); 
-    cudaErrorCheck(cudaMemset(deviceInput.sp_rlm, 0, constants.nnod_rlm*ncomp*sizeof(double)));
-  }
+  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.vr_rtm), constants.nnod_rtm*ncomp*sizeof(double))); 
+  cudaErrorCheck(cudaMemset(deviceInput.vr_rtm, 0, constants.nnod_rtm*ncomp*sizeof(double)));
+  cudaErrorCheck(cudaMalloc((void**)&(deviceInput.sp_rlm), constants.nnod_rlm*ncomp*sizeof(double))); 
+  cudaErrorCheck(cudaMemset(deviceInput.sp_rlm, 0, constants.nnod_rlm*ncomp*sizeof(double)));
 }
 
 void memcpy_h2d_(int *lstack_rlm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *g_sph_rlm, double *g_sph_rlm_7, double *asin_theta_1d_rtm, int *idx_gl_1d_rlm_j, double *radius_1d_rlm_r, double *weight_rtm, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm) {
@@ -339,9 +325,21 @@ void set_spectrum_data_(double *sp_rlm, int *ncomp) {
   cudaErrorCheck(cudaMemcpy(deviceInput.sp_rlm, sp_rlm, constants.nnod_rlm*(*ncomp)*sizeof(double), cudaMemcpyHostToDevice)); 
 }
 
-void set_physical_data_(double *vr_rtm, int *ncomp) {
+void set_physical_data_(double *symp_r, double *asmp_t, double *asmp_p, double *symn_t, double *symn_p, double *symp) {
   // Current: 0 = vr_rtm, 1 = sp_rlm, 2 = g_sph_rlm 
-  cudaErrorCheck(cudaMemcpy(deviceInput.vr_rtm, vr_rtm, constants.nnod_rtm*(*ncomp)*sizeof(double), cudaMemcpyHostToDevice)); 
+
+    int n = constants.nidx_rtm[0] * constants.nidx_rtm[1] * (constants.nvector);
+    size_t mem = sizeof(double) * n * nStreams; 
+
+    cudaErrorCheck(cudaMemcpyAsync(deviceInput.symp_r, symp_r, mem, cudaMemcpyHostToDevice, streams[0%nStreams]));
+    cudaErrorCheck(cudaMemcpyAsync(deviceInput.asmp_t, asmp_t, mem, cudaMemcpyHostToDevice,streams[1%nStreams]));
+    cudaErrorCheck(cudaMemcpyAsync(deviceInput.asmp_p, asmp_p, mem, cudaMemcpyHostToDevice,streams[2%nStreams]));
+    cudaErrorCheck(cudaMemcpyAsync(deviceInput.symn_t, symn_t, mem, cudaMemcpyHostToDevice,streams[3%nStreams]));
+    cudaErrorCheck(cudaMemcpyAsync(deviceInput.symn_p, symn_p, mem, cudaMemcpyHostToDevice,streams[4%nStreams]));
+    n = constants.nidx_rtm[0] * constants.nidx_rtm[1] * (constants.nscalar);
+    mem = sizeof(double) * n * nStreams; 
+    cudaErrorCheck(cudaMemcpyAsync(deviceInput.symp, symp, mem, cudaMemcpyHostToDevice,streams[5%nStreams]));
+//  cudaErrorCheck(cudaMemcpy(deviceInput.vr_rtm, vr_rtm, constants.nnod_rtm*(*ncomp)*sizeof(double), cudaMemcpyHostToDevice)); 
 }
 
 void retrieve_spectrum_data_(double *sp_rlm, int *ncomp) {
@@ -373,6 +371,14 @@ void clear_field_data_(int *ncomp) {
 void deAllocMemOnGPU() {
   // Current: 0 = vr_rtm, 1 = sp_rlm, 2 = g_sph_rlm 
     cudaErrorCheck(cudaFree(deviceInput.vr_rtm));
+
+    cudaErrorCheck(cudaFree(deviceInput.symp_r));
+    cudaErrorCheck(cudaFree(deviceInput.asmp_t));
+    cudaErrorCheck(cudaFree(deviceInput.asmp_p));
+    cudaErrorCheck(cudaFree(deviceInput.symn_t));
+    cudaErrorCheck(cudaFree(deviceInput.symn_p));
+    cudaErrorCheck(cudaFree(deviceInput.symp));
+
     cudaErrorCheck(cudaFree(deviceInput.sp_rlm));
     cudaErrorCheck(cudaFree(deviceInput.g_colat_rtm));
     cudaErrorCheck(cudaFree(deviceInput.g_sph_rlm));

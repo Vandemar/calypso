@@ -296,6 +296,7 @@
 ! Host data
         call start_eleps_time(62)
         call allocate_work_sph_trans(ncomp)
+        call alloc_mem_4_reordering(nvector, nscalar)
         call end_eleps_time(62)
 #ifdef CUB
       else if(id_legendre_transfer .eq. iflag_leg_cub) then
@@ -326,6 +327,7 @@
       use m_legendre_work_testlooop
 #ifdef CUDA
       use calypso_mpi
+      use cuda_optimizations
 #endif
 !
 !
@@ -352,6 +354,7 @@
 #ifdef CUDA
       else if(id_legendre_transfer .eq. iflag_leg_cuda) then
         call deallocate_work_sph_trans
+        call dealloc_mem_4_reordering
 !    Remove all data on GPU if, another method is chosen
 !        call calypso_gpu_finalize
 #endif

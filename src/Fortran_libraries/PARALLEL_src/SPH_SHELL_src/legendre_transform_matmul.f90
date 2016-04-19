@@ -82,6 +82,9 @@
 !
       use legendre_fwd_trans_matmul
       use spherical_SRs_N
+#ifdef CUDA_DEBUG
+      use cuda_optimizations
+#endif
 !
       integer(kind = kint), intent(in) :: ncomp, nvector, nscalar
       integer(kind = kint), intent(in) :: n_WR, n_WS
@@ -89,7 +92,14 @@
       real (kind=kreal), intent(inout):: WS(n_WS)
 !
 !
+#ifdef CUDA_DEBUG
+      call write2file(WR(1), n_WR, 'inputB', 6)
+#endif
       call finish_send_recv_rtp_2_rtm
+#ifdef CUDA_DEBUG
+      call write2file_int(WR(1), nnod_rtm, 'commB', 5)
+#endif
+
 !$omp parallel workshare
       WS(1:ncomp*ntot_item_sr_rlm) = 0.0d0
 !$omp end parallel workshare

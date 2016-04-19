@@ -141,7 +141,7 @@
      &        asmn_t(1,ip), Ps_rtm(1,jst_h(ip)), dtordp_o(1,ip))
           call matmul_fwd_leg_trans(nkr(ip), n_jk_o(ip), nth_hemi_rtm,  &
      &        symp_p(1,ip), dPsdt_rtm(1,jst_h(ip)), dtordt_o(1,ip))
-  !          elaps(3) = MPI_WTIME() - st_elapsed + elaps(3)
+!          elaps(3) = MPI_WTIME() - st_elapsed + elaps(3)
 !
 !          st_elapsed = MPI_WTIME()
           call cal_sp_rlm_vector_sym_matmul                             &
