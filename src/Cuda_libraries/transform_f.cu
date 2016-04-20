@@ -1105,7 +1105,7 @@ void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
 
   dim3 grid(constants.nidx_rlm[1],nShells,1);
   transF_vec_cub< 96, 4, 13,
-                  cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
+                  cub::BLOCK_REDUCE_RAKING>
             <<<grid, 96>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
                         deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
                         deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, 

@@ -10,6 +10,7 @@
 //#include <mpi.h>
 #ifdef CUB
 #include <cub/cub.cuh>
+#include <cub/block/block_reduce.cuh>
 #endif
 
 #ifdef CUBLAS

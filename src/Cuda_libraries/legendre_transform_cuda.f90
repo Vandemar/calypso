@@ -67,7 +67,7 @@
 #endif
       call cpy_spectrum_dat_2_gpu(ncomp, sp_rlm_wk(1)) 
 #if defined(CUDA_TIMINGS)
-      call sync_device
+!      call sync_device
       call end_eleps_time(57) 
 #endif
 
@@ -93,7 +93,7 @@
 #endif
 
 #if defined(CUDA_TIMINGS)
-      call start_eleps_time(58) 
+      call start_eleps_time(57) 
 #endif
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
       call cpy_field_dev2host_4_debug(ncomp)
@@ -101,8 +101,8 @@
       call cpy_physical_dat_from_gpu(ncomp, vr_rtm_wk(1))
 #endif
 #if defined(CUDA_TIMINGS)
-      call sync_device
-      call end_eleps_time(58) 
+!      call sync_device
+      call end_eleps_time(57) 
 #endif
 !
 
@@ -148,15 +148,11 @@
       call end_eleps_time(57) 
 #endif
 
-      if(nvector .gt. 0 .OR. nscalar .gt. 0) then
 #if defined(CUDA_TIMINGS)
         call start_eleps_time(59) 
 #endif
+      if(nvector .gt. 0 .OR. nscalar .gt. 0) then
         call legendre_b_trans_cuda(ncomp, nvector, nscalar)
-#if defined(CUDA_TIMINGS)
-        call sync_device
-        call end_eleps_time(59) 
-#endif
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
           call legendre_b_trans_vector_org(ncomp, nvector, sp_rlm_wk(1) &
      &       , vr_rtm_wk(1))
@@ -168,9 +164,13 @@
      &     (ncomp, nvector, nscalar, sp_rlm_wk(1), vr_rtm_wk(1))
       end if
 #endif
+#if defined(CUDA_TIMINGS)
+        call sync_device
+        call end_eleps_time(59) 
+#endif
 
 #if defined(CUDA_TIMINGS)
-      call start_eleps_time(58) 
+      call start_eleps_time(57) 
 #endif
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
       call cpy_field_dev2host_4_debug(ncomp)
@@ -179,7 +179,7 @@
 #endif
 #if defined(CUDA_TIMINGS)
       call sync_device
-      call end_eleps_time(58) 
+      call end_eleps_time(57) 
 #endif
 !
 
@@ -220,20 +220,16 @@
 #endif
       call cpy_physical_dat_2_gpu(ncomp, vr_rtm_wk(1)) 
 #if defined(CUDA_TIMINGS)
-      call sync_device
+!      call sync_device
       call end_eleps_time(64)
 #endif
 
-      if(nvector .gt. 0) then
 #if defined(CUDA_TIMINGS)
         call start_eleps_time(60)
 #endif
+      if(nvector .gt. 0) then
         call legendre_f_trans_vector_cuda(ncomp, nvector, nscalar,      &
      &                                                 1, nidx_rtm(1)) 
-#if defined(CUDA_TIMINGS)
-        call sync_device
-        call end_eleps_time(60)
-#endif
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
           call legendre_f_trans_vector_org(ncomp, nvector, vr_rtm_wk(1) &
      &       , sp_rlm_wk(1))
@@ -241,23 +237,20 @@
       end if
 
       if(nscalar .gt. 0) then
-#if defined(CUDA_TIMINGS)
-        call start_eleps_time(68) 
-#endif
         call legendre_f_trans_scalar_cuda(ncomp, nvector, nscalar,      &
      &                                                  1, nidx_rtm(1)) 
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
         call legendre_f_trans_scalar_org                                &
      &     (ncomp, nvector, nscalar, vr_rtm_wk(1), sp_rlm_wk(1))
 #endif
-#if defined(CUDA_TIMINGS)
-        call sync_device
-        call end_eleps_time(68) 
-#endif
       end if
 
 #if defined(CUDA_TIMINGS)
-        call start_eleps_time(65) 
+        call sync_device
+        call end_eleps_time(60)
+#endif
+#if defined(CUDA_TIMINGS)
+        call start_eleps_time(64) 
 #endif
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
          call cpy_spec_dev2host_4_debug(ncomp)
@@ -265,8 +258,8 @@
         call cpy_spectrum_dat_from_gpu(ncomp, sp_rlm_wk(1))
 #endif
 #if defined(CUDA_TIMINGS)
-        call sync_device
-        call end_eleps_time(65) 
+!        call sync_device
+        call end_eleps_time(64) 
 #endif
 !
 
