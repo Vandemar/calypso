@@ -208,9 +208,9 @@
           end do
         end do
 !
-!        do mp_rlm = 1, nidx_rtm(3)
-!          mn_rlm = nidx_rtm(3) - mp_rlm + 1
+!       do mp_rlm = 1, nidx_rtm(3)
         do mp_rlm = 1, order-1 
+          mn_rlm = nidx_rtm(3) - mp_rlm + 1
           jst = lstack_rlm(mp_rlm-1) + 1
           jed = lstack_rlm(mp_rlm)
           do k_rlm = kst, ked
@@ -341,4 +341,59 @@
 !
 ! -----------------------------------------------------------------------
 !
+!
+! -----------------------------------------------------------------------
+!
+      subroutine legendre_b_trans_scalar_org_4_cuda                     &
+     &         (ncomp, nvector, nscalar, sp_rlm, vr_rtm, order)
+!
+      integer(kind = kint), intent(in) :: ncomp, nvector, nscalar, order
+      real(kind = kreal), intent(in) :: sp_rlm(ncomp*nnod_rlm)
+      real(kind = kreal), intent(inout) :: vr_rtm(ncomp*nnod_rtm)
+!
+      integer(kind = kint) :: i_rlm, j_rlm, k_rlm, l_rtm
+      integer(kind = kint) :: ip_rtm, nd, ip, kst, ked
+      integer(kind = kint) :: mp_rlm, jst, jed
+      real(kind = kreal) :: vr1
+      real(kind = kreal) :: P_j(nidx_rlm(2))
+!
+!
+!$omp parallel do schedule(static)                                      &
+!$omp&            private(ip,kst,ked,j_rlm,l_rtm,nd,k_rlm,              &
+!$omp&                    ip_rtm,i_rlm,mp_rlm,jst,jed,vr1,P_j)
+      do ip = 1, np_smp
+        kst = idx_rtm_smp_stack(ip-1,1) + 1
+        ked = idx_rtm_smp_stack(ip,  1)
+!
+!        do mp_rlm = 1, nidx_rtm(3)
+        do mp_rlm = 1, order-1
+          jst = lstack_rlm(mp_rlm-1) + 1
+          jed = lstack_rlm(mp_rlm)
+          do k_rlm = kst, ked
+!
+            do l_rtm = 1, nidx_rtm(2)
+              P_j(jst:jed) = P_jl(jst:jed,l_rtm)
+              do nd = 1, nscalar
+                vr1 = 0.0d0
+                do j_rlm = jst, jed
+                  i_rlm = nd + 3*nvector                                &
+     &                       + ncomp * ((j_rlm-1) * istep_rlm(2)        &
+     &                                + (k_rlm-1) * istep_rlm(1))
+!
+                  vr1 = vr1 + sp_rlm(i_rlm) * P_j(j_rlm)
+                end do
+                ip_rtm = nd + 3*nvector                                 &
+     &                      + ncomp*((l_rtm-1) *  istep_rtm(2)          &
+     &                             + (k_rlm-1) *  istep_rtm(1)          &
+     &                             + (mp_rlm-1) * istep_rtm(3))
+                vr_rtm(ip_rtm) = vr1
+              end do
+            end do
+!
+          end do
+        end do
+      end do
+!$omp end parallel do
+!
+      end subroutine legendre_b_trans_scalar_org_4_cuda
       end module legendre_bwd_trans_org

@@ -84,8 +84,11 @@ void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *d
   #endif
 }
 
-void check_bwd_trans_cuda_and_org_(int *my_rank, double *vr_rtm_base, double *vr_rtm, double *P_jl, double *dP_jl) {
+void check_bwd_trans_cuda_and_org_(int *my_rank, double *vr_rtm_base, double *vr_rtm, double *P_jl, double *dP_jl, int *ncomp, int *nvector, int *nscalar) {
 
+   constants.ncomp = (*ncomp);
+   constants.nscalar = (*nscalar);
+   constants.nvector = (*nvector);
   #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
     std::string fName;
     std::stringstream sc;

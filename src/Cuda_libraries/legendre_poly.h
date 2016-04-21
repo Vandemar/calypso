@@ -57,7 +57,7 @@ extern __constant__ int lstack_rlm_cmem[1000];
 
 // Fortran function calls
 extern "C" {
-  void legendre_b_trans_cuda_(int*, int*, int*);
+  void legendre_b_trans_cuda_(int*, int*, int*, int*, int*);
   void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar, int*, int*);
   void legendre_f_trans_scalar_cuda_(int *ncomp, int *nvector, int *nscalar, int*, int*);
 #ifdef CUBLAS
@@ -226,7 +226,7 @@ void retrieve_physical_data_(double *vr_rtm, int *ncomp);
 void clear_spectrum_data_(int *ncomp);
 void clear_field_data_(int *ncomp);
 void check_bwd_trans_cuda_(int*, double*, double*, double*);
-void check_bwd_trans_cuda_and_org_(int *my_rank, double *vr_rtm_base, double *vr_rtm, double *P_jl, double *dP_jl);
+void check_bwd_trans_cuda_and_org_(int *my_rank, double *vr_rtm_base, double *vr_rtm, double *P_jl, double *dP_jl, int *ncomp, int *nvector, int *nscalar);
 void check_fwd_trans_cuda_(int *my_rank, double *sp_rlm);
 void check_fwd_trans_cuda_and_org_(int *my_rank, double *sp_rlm, double *sp_rlm_debug);
 void output_spectral_data_cuda_(int *my_rank, int *ncomp, int *nvector, int *nscalar);
@@ -276,13 +276,15 @@ __global__ void transB_m_l_neo(int const* __restrict__ lstack_rlm, int const* __
 __global__ void set_leg_poly_m_ep_l(double *leg_poly_m_eq_l);
 
 __global__ void transB_dydt(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *dP_jl, const Geometry_c constants);
+__global__ void transB_dydt(int mp_rlm_st, double *g_sph_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *dP_jl, const Geometry_c constants);
 __global__ void transB_dydt_smem_dpschmidt(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double const* __restrict__ P_jl, double const* __restrict__ dP_jl, const Geometry_c constants);
 __global__ void transB_dydt_smem_schmidt_more_threads(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *dP_jl, const Geometry_c constants);
 __global__ void transB_dydt_smem_a_r(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double const* __restrict__ P_jl, double *dP_jl, const Geometry_c constants);
 __global__ void transB_dydt_read_only_data(int const* __restrict__ lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double const* __restrict__ P_jl, double const* __restrict__ dP_jl);
 __global__ void transB_dydp(int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *asin_theta_1d_rtm, const Geometry_c constants);
+__global__ void transB_dydp(int mp_rlm_st, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl,  double *asin_theta_1d_rtm, const Geometry_c constants);
 __global__ void transB_dydp_smem_schmidt_more_threads(int *lstack_rlm, int *idx_gl_1d_rlm_j, double *vr_rtm, double const* __restrict__ sp_rlm, double *a_r_1d_rlm_r, double *P_jl, double *asin_theta_1d_rtm, const Geometry_c constants);
-__global__ void transB_scalar(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl, const Geometry_c constants);
+__global__ void transB_scalar(int mp_rlm_st, int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl, const Geometry_c constants);
 __global__ void transB_scalar_opt_mem_access(int *lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl);
 __global__ void transB_scalar_block_mp_rlm(int const* __restrict__ lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double const* __restrict__ P_jl);
 __global__ void transB_scalar_block_mp_rlm_smem(int const* __restrict__ lstack_rlm, double *vr_rtm, double const* __restrict__ sp_rlm, double *P_jl);

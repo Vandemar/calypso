@@ -132,7 +132,6 @@
       real (kind=kreal), intent(inout):: WS(n_WS)
 !
 !
-      write(*,*) 'I am doing it!'
       call calypso_rlm_from_recv_N(ncomp, n_WR, WR, sp_rlm_wk(1))
 
       call clear_bwd_legendre_work(ncomp)
@@ -155,9 +154,12 @@
 #if defined(CUDA_TIMINGS)
         call start_eleps_time(59) 
 #endif
-        call legendre_b_trans_cuda(ncomp, nvector, nscalar)
+        call legendre_b_trans_cuda(ncomp, nvector, nscalar,             &
+     &                        nidx_rtm(3)-4, nidx_rtm(3))
         call legendre_b_trans_vector_org_4_cuda(ncomp, nvector,         &
-     &              sp_rlm_wk(1), vr_rtm_wk(1), nidx_rtm(3))
+     &              sp_rlm_wk(1), vr_rtm_wk(1), nidx_rtm(3)-4)
+        call legendre_b_trans_scalar_org_4_cuda(ncomp, nvector,         &
+     &        nscalar, sp_rlm_wk(1), vr_rtm_wk(1), nidx_rtm(3)-4)
 #if defined(CUDA_TIMINGS)
         call sync_device
         call end_eleps_time(59) 
@@ -179,8 +181,8 @@
 #endif
 
 !      call cpy_field_dev2host_4_debug(ncomp)
-      call retrieve_physical_data_cuda_and_org(vr_rtm_wk(1),            &
-     &                    ncomp, nidx_rtm(3)-1, nidx_rtm(3))
+     call retrieve_physical_data_cuda_and_org(vr_rtm_wk(1),            &
+     &                    ncomp, nidx_rtm(3)-4, nidx_rtm(3))
 
 #if defined(CUDA_TIMINGS)
       call sync_device
@@ -191,7 +193,7 @@
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
       call check_bwd_trans_cuda_and_org(my_rank, vr_rtm_wk_debug(1),    &
      &            vr_rtm_wk(1), P_jl(1,1),     &
-     &            dPdt_jl(1,1))
+     &            dPdt_jl(1,1), ncomp, nvector, nscalar)
 #endif
       call finish_send_recv_rj_2_rlm
       call calypso_rtm_to_send_N(ncomp, n_WS, vr_rtm_wk(1), WS(1))
