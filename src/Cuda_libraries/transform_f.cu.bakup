@@ -16,7 +16,7 @@ void transF_m_l_OTF(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, dou
   // sdata is a container for legendre polynomials and the derivative of the legendre polynomials with respect to theta
   // The data is organized by nTheta leg polys and then nTheta dp dtheta leg polys.
   extern __shared__ double sdata;
-  //grid(nModes,1,1)
+  //grid(nTheta,1,1)
   //block(nShells, nvector)
   int m, l;
   int order, degree;

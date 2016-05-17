@@ -32,7 +32,7 @@
 #if defined(CUDA)
       num_elapsed = 56
 #if defined(CUDA_TIMINGS)
-      num_elapsed = 68
+      num_elapsed = 69
 #endif
 #else
       num_elapsed = 54
@@ -120,6 +120,7 @@
       elapse_labels(66) = 'Mem alloc on GPU'  
       elapse_labels(67) = 'MemCpy to GPU for leg_trans'  
       elapse_labels(68) = 'LGP fwd scalar transform'
+      elapse_labels(69) = 'LGP fwd vector transform'
 #endif
 #endif
       end subroutine set_sph_MHD_elapsed_label
@@ -140,7 +141,7 @@
         call reset_eleps_time(i)
       end do
 #if defined(CUDA_TIMINGS)
-      do i = 57, 68
+      do i = 57, 69
         call reset_eleps_time(i)
       end do
 #endif

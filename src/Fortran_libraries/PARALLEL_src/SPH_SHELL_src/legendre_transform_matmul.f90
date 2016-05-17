@@ -64,6 +64,9 @@
       WS(1:ncomp*ntot_item_sr_rtm) = 0.0d0
 !$omp end parallel workshare
 !
+#ifdef CUDA_TIMINGS
+      call start_eleps_time(59)
+#endif
       if(nvector .gt. 0) then
         call leg_b_trans_vector_matmul(ncomp, nvector,                  &
      &      irev_sr_rlm, irev_sr_rtm, n_WR, n_WS, WR, WS)
@@ -72,6 +75,9 @@
         call leg_b_trans_scalar_matmul(ncomp, nvector, nscalar,         &
      &      irev_sr_rlm, irev_sr_rtm, n_WR, n_WS, WR, WS)
       end if
+#ifdef CUDA_TIMINGS
+      call end_eleps_time(59)
+#endif
 !
       end subroutine leg_backward_trans_matmul
 !
@@ -94,6 +100,9 @@
       WS(1:ncomp*ntot_item_sr_rlm) = 0.0d0
 !$omp end parallel workshare
 !
+#ifdef CUDA_TIMINGS
+      call start_eleps_time(60) 
+#endif
       if(nvector .gt. 0) then
         call leg_f_trans_vector_matmul(ncomp, nvector,                  &
      &      irev_sr_rtm, irev_sr_rlm, n_WR, n_WS, WR, WS)
@@ -102,6 +111,9 @@
         call leg_f_trans_scalar_matmul(ncomp, nvector, nscalar,         &
      &      irev_sr_rtm, irev_sr_rlm, n_WR, n_WS, WR, WS)
       end if
+#ifdef CUDA_TIMINGS
+      call end_eleps_time(60) 
+#endif
 !
       end subroutine leg_forward_trans_matmul
 !

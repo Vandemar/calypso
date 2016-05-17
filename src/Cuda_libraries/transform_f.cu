@@ -959,7 +959,8 @@ void transF_scalar(int kst, double *vr_rtm, double *sp_rlm, int *mdx_p_rlm_rtm, 
 }
 
 //Reduction using an open source library CUB supported by nvidia
-/*template <
+#ifdef CUB
+template <
     int     THREADS_PER_BLOCK,
     int			ITEMS_PER_THREAD,
     cub::BlockReduceAlgorithm ALGORITHM,
@@ -1000,8 +1001,8 @@ void transF_scalar_reduction(double *vr_rtm, double *sp_rlm, double *weight_rtm,
     __syncthreads();
     sp_rlm[idx-1] = BlockReduceT(temp_storage).Sum(spectral);
   } 
-}*/
-
+}
+#endif
 
 void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar, int *kst, int *ked) {
   static int nShells = constants.nidx_rtm[0];
@@ -1019,7 +1020,7 @@ void legendre_f_trans_vector_cuda_(int *ncomp, int *nvector, int *nscalar, int *
 
   dim3 grid(constants.nidx_rlm[1],1,1);
   //dim3 block(constants.nvector, constants.nidx_rtm[0],1);
-  dim3 block(constants.nvector, *ked - *kst +1 ,1);
+  dim3 block(constants.nvector, *ked - *kst +1,1);
 
   transF_vec_org<<<grid, block, 0, streams[0]>>> (*kst, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, constants);
 //  transF_vec_unpaired<<<constants.nSingletons, block, 2*sizeof(double)*constants.nidx_rtm[1], streams[0]>>> (deviceInput.unpairedList, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
@@ -1046,11 +1047,11 @@ void legendre_f_trans_vector_cublas_(int *ncomp, int *nvector, int *nscalar) {
   dim3 dataMovementGrid(constants.nidx_rtm[1],constants.nidx_rtm[0],1);
   dim3 setDataGrid(constants.nidx_rlm[1], constants.nidx_rlm[0]);
 
-#ifdef CUDA_TIMINGS
+/*#ifdef CUDA_TIMINGS
   static Timer transF_v_cublas("fwd vector algorithm CUBLAS");
   cudaPerformance.registerTimer(&transF_v_cublas);
   transF_v_cublas.startTimer();
-#endif
+#endif*/
 
 //A series of matrix vector multiplies queued into the different streams
   for(int l=0; l<constants.nidx_rlm[1]; l++) {
@@ -1077,10 +1078,10 @@ void legendre_f_trans_vector_cublas_(int *ncomp, int *nvector, int *nscalar) {
   
   setSpectralData<<<setDataGrid, dataMovementBlk>>>(fwdTransBuf.pol_e, fwdTransBuf.dpoldt_e, fwdTransBuf.dtordt_e, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, constants);
 
-#ifdef CUDA_TIMINGS
+/*#ifdef CUDA_TIMINGS
   cudaDevSync();
   transF_v_cublas.endTimer();
-#endif
+#endif*/
 #endif
 }
 
@@ -1097,19 +1098,20 @@ void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
   constants.nscalar= *nscalar;
   constants.nvector = *nvector;
 
-#ifdef CUDA_TIMINGS
+/*#ifdef CUDA_TIMINGS
   static Timer transF_v_cub("fwd vector algorithm CUB");
   cudaPerformance.registerTimer(&transF_v_cub);
   transF_v_cub.startTimer();
-#endif
+#endif*/
 
+//cub::BlockReduceAlgorithm BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY;
   dim3 grid(constants.nidx_rlm[1],nShells,1);
-  transF_vec_cub< 96, 4, 13,
-                  cub::BLOCK_REDUCE_RAKING>
-            <<<grid, 96>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
+  transF_vec_cub< 384, 4, 13, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
+            <<<grid, 384>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
                         deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
                         deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, 
                         constants);
+
 /*  transF_vec_reduction< 32, 3,
                   cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                       double>
@@ -1119,10 +1121,10 @@ void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
                         constants);
 */
 
-#ifdef CUDA_TIMINGS
+/*#ifdef CUDA_TIMINGS
   cudaDevSync();
   transF_v_cub.endTimer();
-#endif
+#endif*/
 #endif
 }
 
@@ -1136,11 +1138,11 @@ void legendre_f_trans_scalar_cuda_(int *ncomp, int *nvector, int *nscalar, int *
   cudaPerformance.registerTimer(&transF_s);
   transF_s.startTimer();
 #endif*/
-  /*transF_scalar_reduction <32, 3, 
+  /*transF_scalar_reduction < 384, 3, 
                      cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
                      double>
                <<<grid, 32>>> (deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
-*/  
+  */
   dim3 block(*ked - *kst +1 ,1);
   transF_scalar<<<constants.nidx_rlm[1], block, 0, streams[1]>>> (*kst, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, constants);
 /*#ifdef CUDA_TIMINGS
