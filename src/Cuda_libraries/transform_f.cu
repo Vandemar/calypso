@@ -13,7 +13,7 @@ void transF_m_l_OTF(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, dou
 #endif
   // sdata is a container for legendre polynomials and the derivative of the legendre polynomials with respect to theta
   // The data is organized by nTheta leg polys and then nTheta dp dtheta leg polys.
-  extern __shared__ double sdata;
+//  extern __shared__ double sdata;
   //grid(nModes,1,1)
   //block(nShells, nvector)
   int m, l;
@@ -33,6 +33,9 @@ void transF_m_l_OTF(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, dou
   if(degree == 0) 
     return;
   
+  int k_rtm = threadIdx.x; 
+  int nTheta = constants.nidx_rtm[1];
+
   int mdx_p = mdx_p_rlm_rtm[blockIdx.x] - 1;
   int ip_rtm = k_rtm * constants.istep_rtm[0];
   int mdx_n = mdx_n_rlm_rtm[blockIdx.x] - 1;
@@ -41,7 +44,6 @@ void transF_m_l_OTF(int *idx_gl_1d_rlm_j, double const* __restrict__ vr_rtm, dou
   mdx_p += ip_rtm;
   mdx_n += ip_rtm;
 
-  int idx;
   int idx_p_rtm = blockIdx.x*nTheta; 
  
   double r_1d_rlm_r = radius_1d_rlm_r[k_rtm]; 
@@ -346,9 +348,11 @@ void legendre_f_trans_cuda_(int *ncomp, int *nvector, int *nscalar) {
   constants.nscalar= *nscalar;
   constants.nvector = *nvector;
 
+   
+  dim3 block2(constants.nidx_rtm[0],constants.nvector,1);
+  transF_m_l_OTF<<<grid, block2, 0, streams[0]>>>(deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
+  transF_scalar<<<grid, block, 0, streams[1]>>> (1, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
 //  transF_vec<<<grid, block, 0, streams[0]>>> (1, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 
-  dim3 block2(constants.nidx_rtm[0],constants.nvector,1);
-  transF_vec_smem_schmidt<<<grid, block2, sizeof(double)*nTheta*2, streams[0]>>> (1, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
-  transF_scalar<<<grid, block, 0, streams[1]>>> (1, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.p_rtm, deviceInput.g_sph_rlm_7, constants);
+//  transF_vec_smem_schmidt<<<grid, block2, sizeof(double)*nTheta*2, streams[0]>>> (1, deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, constants);
 }
