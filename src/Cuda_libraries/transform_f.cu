@@ -186,6 +186,92 @@ __global__ void transF_vec_cub(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_
   }
  }
 }
+
+//Reduction using an open source library CUB supported by nvidia
+template <
+    int     THREADS_PER_BLOCK,
+    int			NVECTORS,
+    int         NCOMPS,
+    cub::BlockReduceAlgorithm ALGORITHM>
+__global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *asin_theta_1d_rtm, const Geometry_c constants) {
+  //dim3 grid(constants.nidx_rlm[1],constants.nidx_rtm[0],1); 
+  //dim3 block(nTheta,1,1);
+
+  //Assumptions nad REquirements:
+  // ITEMS_PER_THREAD==ncomponents
+  
+  typedef cub::BlockLoad<double*, THREADS_PER_BLOCK, NCOMP*S> BlockLoadT; 
+  typedef cub::BlockReduce<double, THREADS_PER_BLOCK, ALGORITHM> BlockReduceT;
+//  typedef cub::BlockStore<T, THREADS_PER_BLOCK, ITEMS_PER_THREAD, BLOCK_LOAD_DIRECT> BlockStoreT; 
+  
+  __shared__ union
+  {
+    typename BlockLoadT::TempStorage load;
+    typename BlockReduceT::TempStorage reduce;
+    //typename BlockReduceT::TempStorage store;
+  } temp_storage;
+
+  /*
+  ** Arrays that will contain the values of the vectors that have been transformed into Fourier space.
+  ** Based on the theta discretization and number of vectors being transformed will determine how many registed are required per block of threads. Which in turn determines parallelization. 
+  */
+
+  double positive_coefficients[NCOMPS];
+  double negative_coefficients[NCOMPS];
+
+  int idx = constants.ncomp * ((mdx_p_rlm_rtm[blockIdx.x]-1)*constants.istep_rtm[2] + blockIdx.y*constants.nidx_rtm[0]);
+
+  BlockLoadT(temp_storage.load).Load(&vr_rtm[idx], positive_coefficients);
+
+  idx = constants.ncomp * ((mdx_n_rlm_rtm[blockIdx.x]-1)*constants.istep_rtm[2] + blockIdx.y*constants.nidx_rtm[0]);
+
+  __syncthreads();
+
+  BlockLoadT(temp_storage.load).Load(&vr_rtm[idx], negative_coefficients);
+
+// 3 for m-1, m, m+1
+  unsigned int ip_rtm, in_rtm;
+
+  double reg0, reg1, reg2, reg3, reg4;
+
+  int order = idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + blockIdx.x];
+
+  /*
+  ** Index value for the legendre ploynomials and the derivative of legendre ploynomials
+  ** as a function of thread index or theta component.  
+  */
+
+  int idx_p_rtm = blockIdx.x*constants.nidx_rtm[1] + threadIdx.x; 
+ 
+  double r_1d_rlm_r = radius_1d_rlm_r[blockIdx.y]; 
+  int idx_sp = constants.ncomp * ( blockIdx.x*constants.istep_rlm[1] + blockIdx.y*constants.istep_rlm[0]); 
+  double sp1[NVECTORS]={0}, sp2[NVECTORS]={0}, sp3[NVECTORS]={0}; 
+  double sp_rlm_tmp[NVECTORS*3];
+  unsigned int l_rtm=0;
+
+  for(int t=0; t < NVECTORS; t++) {
+    sp1[t] = P_rtm[idx_p_rtm] * positive_coefficients[(t+1)*3 - 3];
+    reg0 = asin_theta_1d_rtm[threadIdx.x] * order * P_rtm[idx_p_rtm];
+    sp2[t] = positive_coefficients[(t+1)*3-2] * dP_rtm[idx_p_rtm] - negative_coefficients[(t+1)*3-1] * reg0;  
+    sp3[t] = negative_coefficients[(t+1)*3-2] * reg0 + positive_coefficients[(t+1)*3-1] * dP_rtm[idx_p_rtm];
+   
+    __syncthreads();  
+    sp_rlm_tmp[(t+1)*3-3] = r_1d_rlm_r * r_1d_rlm_r *BlockReduceT(temp_storage.reduce).Sum(sp1[t]);
+    __syncthreads();
+     sp_rlm_tmp[(t+1)*3-2] = r_1d_rlm_r * BlockReduceT(temp_storage.reduce).Sum(sp2[t]);
+    __syncthreads();
+    sp_rlm_tmp[(t+1)*3-1] = -1 * r_1d_rlm_r * BlockReduceT(temp_storage.reduce).Sum(sp3[t]);
+  }
+ 
+ if(threadIdx.x == 0) { 
+  for(int t=0; t<NVECTORS; t++) {
+    idx_sp += 3; 
+    sp_rlm[idx_sp-3] += sp_rlm_tmp[(t+1)*3-3]; 
+    sp_rlm[idx_sp-2] += sp_rlm_tmp[(t+1)*3-2];
+    sp_rlm[idx_sp-1] += sp_rlm_tmp[(t+1)*3-1];
+  }
+ }
+}
 #endif
 
 #ifdef CUBLAS
