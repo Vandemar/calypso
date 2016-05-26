@@ -167,7 +167,6 @@
           call legendre_b_trans_vector_org(ncomp, nvector, sp_rlm_wk(1) &
      &       , vr_rtm_wk_debug(1))
 #endif
-      end if
 #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
       if(nscalar .gt. 0) then
         call legendre_b_trans_scalar_org                                &
