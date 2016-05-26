@@ -20,7 +20,7 @@
 #ifdef CUDA_DEBUG
 !>      field data for Legendre transform  @f$ f(r,\theta,m) @f$ 
 !!@n     size:  vr_rtm(ncomp*nidx_rtm(2)*nidx_rtm(1)*nidx_rtm(3))
-!      real(kind = kreal), allocatable :: vr_rtm_wk_debug(:)
+      real(kind = kreal), allocatable :: vr_rtm_wk_debug(:)
 !
 !>      Spectr data for Legendre transform  @f$ f(r,l,m) @f$ 
 !>@n      size: sp_rlm(ncomp*nidx_rlm(2)*nidx_rtm(1))
@@ -38,11 +38,15 @@
 
 #ifdef CUDA_DEBUG       
           allocate(sp_rlm_wk_debug(nnod_rlm*ncomp))
-!          allocate(vr_rtm_wk_debug(nnod_rtm*ncomp))    
+          allocate(vr_rtm_wk_debug(nnod_rtm*ncomp))    
           
           if(ncomp .le. 0) return
 !$omp parallel workshare
             sp_rlm_wk_debug(1:nnod_rlm*ncomp) = 0.0d0
+!$omp end parallel workshare
+
+!$omp parallel workshare
+            vr_rtm_wk_debug(1:nnod_rtm*ncomp) = 0.0d0
 !$omp end parallel workshare
 #endif          
         end subroutine alloc_mem_4_gpu_debug
@@ -58,12 +62,22 @@
 #endif          
         end subroutine clear_fwd_leg_work_debug
 
+        subroutine clear_bwd_leg_work_debug(ncomp)
+          integer(kind = kint), intent(in) :: ncomp
+        
+#ifdef CUDA_DEBUG       
+          if(ncomp .le. 0) return
+!$omp parallel workshare
+            vr_rtm_wk_debug(1:nnod_rtm*ncomp) = 0.0d0
+!$omp end parallel workshare
+#endif          
+        end subroutine clear_bwd_leg_work_debug
+
         subroutine dealloc_mem_4_gpu_debug(ncomp)
 
           integer(kind = kint), intent(in) :: ncomp
 #ifdef CUDA_DEBUG       
-          deallocate(sp_rlm_wk)
-!          deallocate(sp_rlm_wk, vr_rtm_wk)
+          deallocate(sp_rlm_wk, vr_rtm_wk)
 #endif
         end subroutine dealloc_mem_4_gpu_debug
 
