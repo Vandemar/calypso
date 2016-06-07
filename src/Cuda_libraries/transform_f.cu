@@ -272,7 +272,7 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
     r_1d_rlm_r = radius_1d_rlm_r[k_rlm];
 
     for(int t=0; t < NVECTORS; t++) {
-      for (int n_theta = 0; i < THETA_PER_THREAD; ++n_theta) {
+      for (int n_theta = 0; n_theta < THETA_PER_THREAD; ++n_theta) {
         sp1 += P_rtm_local[n_theta] * positive_coefficients[(NCOMPS*n_theta) + (t+1)*3 - 3];
         reg0 = asin_theta_1d_rtm[threadIdx.x*THETA_PER_THREAD + n_theta] * order * P_rtm_local[n_theta];
         sp2 += dP_rtm_local[n_theta] * positive_coefficients[(NCOMPS*n_theta) * (t+1)*3 - 2] - negative_coefficients[(NCOMPS*n_theta) * (t+1)*3 - 1] * reg0;
@@ -297,7 +297,11 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
         sp_rlm[idx_sp-1] += sp_rlm_tmp[(t+1)*3-1];
       }
     }
-    sp_rlm_tmp[NVECTORS*3]={0};
+    for(int t=0; t<NVECTORS; t++) {
+      sp_rlm_tmp[t*3]=0;
+      sp_rlm_tmp[t*3 + 1]=0;
+      sp_rlm_tmp[t*3 + 2]=0;
+    }
   }
 }
 #endif
@@ -1235,11 +1239,31 @@ void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
                         constants);
 */
 
-    transF_vec_cub2< 6, 4, 13, 1, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
-            <<<grid, 6>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r,
+#ifndef CUB_THREADS_PER_BLOCK
+#define CUB_THREADS_PER_BLOCK 1
+#endif
+
+#ifndef CUB_NVECTOR
+#define CUB_NVECTOR 1
+#endif
+
+#ifndef CUB_NCOMPS
+#define CUB_NCOMPS 3
+#endif
+
+#ifndef CUB_THETA_PER_THREAD
+#define CUB_THETA_PER_THREAD 1
+#endif
+
+/*  dim3 grid(constants.nidx_rlm[1],constants.nidx_rlm[0],1); 
+    transF_vec_cub2< CUB_THREADS_PER_BLOCK, CUB_NVECTOR, CUB_NCOMPS, CUB_THETA_PER_THREAD, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
+            <<<grid, CUB_THREADS_PER_BLOCK>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r,
                         deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r,
                         deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm,
                         constants);
+*/
+
+  std::cout << "CUB_THREADS_PER_BLOCK=" << CUB_THREADS_PER_BLOCK << " CUB_NVECTOR=" << CUB_NVECTOR << " CUB_NCOMPS=" << CUB_NCOMPS << " CUB_THETA_PER_THREAD=" << CUB_THETA_PER_THREAD << std::endl;
 
 /*#ifdef CUDA_TIMINGS
   cudaDevSync();

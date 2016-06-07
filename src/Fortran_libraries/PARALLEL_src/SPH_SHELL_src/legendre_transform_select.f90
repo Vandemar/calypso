@@ -243,7 +243,7 @@
         id_legendre_transfer = iflag_leg_cuda
       else if(cmp_no_case(tranx_loop_ctl, leg_cuda_and_org)) then
         id_legendre_transfer = iflag_leg_cuda_and_org
-#ifdef CUB_and_org
+#ifdef CUB
       else if(cmp_no_case(tranx_loop_ctl, leg_cub)) then
         id_legendre_transfer = iflag_leg_cub
 #endif
