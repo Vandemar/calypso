@@ -195,7 +195,7 @@ template <
     int     THETA_PER_THREAD,
     cub::BlockReduceAlgorithm ALGORITHM>
 __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *P_rtm, double *dP_rtm, double *asin_theta_1d_rtm, const Geometry_c constants) {
-  //dim3 grid(constants.nidx_rlm[1],constants.nidx_rtm[0],1); 
+  //dim3 grid(constants.nidx_rlm[1],1,1); 
   //dim3 block(nTheta,1,1);
 
   //Assumptions nad REquirements:
@@ -252,7 +252,7 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
   int order = idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + blockIdx.x];
   double r_1d_rlm_r;
   double sp1=0, sp2=0, sp3=0;
-  int idx_sp = constants.ncomp * ( blockIdx.x*constants.istep_rlm[1] + blockIdx.y*constants.istep_rlm[0]);
+  int idx_sp;
   double sp_rlm_tmp[NVECTORS*3];
   unsigned int l_rtm=0;
 
@@ -264,11 +264,11 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
     */
 
     idx = constants.ncomp *
-          ((mdx_p_rlm_rtm[blockIdx.x] - 1) * constants.istep_rtm[2] + k_rlm * constants.nidx_rtm[0]);
+          ((mdx_p_rlm_rtm[blockIdx.x] - 1) * constants.istep_rtm[2] + k_rlm * constants.istep_rtm[0]);
     BlockLoadT(temp_storage.loadT).Load(&vr_rtm[idx], positive_coefficients);
     __syncthreads();
     idx = constants.ncomp *
-          ((mdx_n_rlm_rtm[blockIdx.x] - 1) * constants.istep_rtm[2] + k_rlm * constants.nidx_rtm[0]);
+          ((mdx_n_rlm_rtm[blockIdx.x] - 1) * constants.istep_rtm[2] + k_rlm * constants.istep_rtm[0]);
     BlockLoadT(temp_storage.loadT).Load(&vr_rtm[idx], negative_coefficients);
     __syncthreads();
 
@@ -278,8 +278,8 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
       for (int n_theta = 0; n_theta < THETA_PER_THREAD; ++n_theta) {
         sp1 += P_rtm_local[n_theta] * positive_coefficients[(NCOMPS*n_theta) + (t+1)*3 - 3];
         reg0 = asin_theta_1d_rtm[threadIdx.x*THETA_PER_THREAD + n_theta] * order * P_rtm_local[n_theta];
-        sp2 += dP_rtm_local[n_theta] * positive_coefficients[(NCOMPS*n_theta) * (t+1)*3 - 2] - negative_coefficients[(NCOMPS*n_theta) * (t+1)*3 - 1] * reg0;
-        sp3 += reg0 * negative_coefficients[(NCOMPS*n_theta) * (t+1)*3 - 2] + dP_rtm_local[n_theta] * positive_coefficients[(NCOMPS*n_theta) * (t+1)*3 - 1];
+        sp2 += dP_rtm_local[n_theta] * positive_coefficients[(NCOMPS*n_theta) + (t+1)*3 - 2] - negative_coefficients[(NCOMPS*n_theta) + (t+1)*3 - 1] * reg0;
+        sp3 += reg0 * negative_coefficients[(NCOMPS*n_theta) + (t+1)*3 - 2] + dP_rtm_local[n_theta] * positive_coefficients[(NCOMPS*n_theta) + (t+1)*3 - 1];
       }
 
       sp_rlm_tmp[(t+1)*3-3] = r_1d_rlm_r * r_1d_rlm_r *BlockReduceT(temp_storage.reduce).Sum(sp1);
@@ -292,6 +292,8 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
       sp1 = sp2 = sp3 = 0;
     }
 
+    idx_sp = constants.ncomp * ( blockIdx.x*constants.istep_rlm[1] + k_rlm*constants.istep_rlm[0]);
+
     if(threadIdx.x == 0) {
       for(int t=0; t<NVECTORS; t++) {
         idx_sp += 3;
@@ -300,6 +302,7 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
         sp_rlm[idx_sp-1] += sp_rlm_tmp[(t+1)*3-1];
       }
     }
+
     for(int t=0; t<NVECTORS; t++) {
       sp_rlm_tmp[t*3]=0;
       sp_rlm_tmp[t*3 + 1]=0;
@@ -1241,7 +1244,7 @@ void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
   transF_v_cub.startTimer();
 #endif*/
 
-  dim3 grid(constants.nidx_rlm[1],constants.nidx_rlm[0],1); 
+//  dim3 grid(constants.nidx_rlm[1],constants.nidx_rlm[0],1); 
 //cub::BlockReduceAlgorithm BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY;
  /* transF_vec_cub< CUB_THREADS_PER_BLOCK*CUB_THETA_PER_THREAD, CUB_NVECTOR, CUB_NCOMPS, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
             <<<grid, CUB_THREADS_PER_BLOCK*CUB_THETA_PER_THREAD>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
@@ -1258,6 +1261,7 @@ void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
                         constants);
 */
 
+  dim3 grid(constants.nidx_rlm[1],1,1); 
     //transF_vec_cub2< 6, 4, 13, 1, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
     transF_vec_cub2< CUB_THREADS_PER_BLOCK, CUB_NVECTOR, CUB_NCOMPS, CUB_THETA_PER_THREAD, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
             <<<grid, CUB_THREADS_PER_BLOCK>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r,
