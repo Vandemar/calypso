@@ -325,7 +325,7 @@ template <
     int         NCOMPS,
     int      THETA_PER_BLOCK,
     cub::BlockReduceAlgorithm ALGORITHM>
-__global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *asin_theta_1d_rtm, const Geometry_c constants);
+__global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *P_rtm, double *dP_rtm, double *asin_theta_1d_rtm, const Geometry_c constants);
 #endif
 /*template< 
       int THREADS_PER_BLOCK,

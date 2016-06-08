@@ -129,7 +129,7 @@ __global__ void transF_vec_cub(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_
   //Assumptions nad REquirements:
   // ITEMS_PER_THREAD==ncomponents
   
-  typedef cub::BlockLoad<double*, THREADS_PER_BLOCK, NCOMPS> BlockLoadT; 
+  /*typedef cub::BlockLoad<double*, THREADS_PER_BLOCK, NCOMPS> BlockLoadT; 
   typedef cub::BlockReduce<double, THREADS_PER_BLOCK, ALGORITHM> BlockReduceT;
 //  typedef cub::BlockStore<T, THREADS_PER_BLOCK, ITEMS_PER_THREAD, BLOCK_LOAD_DIRECT> BlockStoreT; 
   
@@ -184,7 +184,7 @@ __global__ void transF_vec_cub(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_
     sp_rlm[idx_sp-2] += sp_rlm_tmp[(t+1)*3-2];
     sp_rlm[idx_sp-1] += sp_rlm_tmp[(t+1)*3-1];
   }
- }
+ }*/
 }
 
 //Reduction using an open source library CUB supported by nvidia
@@ -194,7 +194,7 @@ template <
     int         NCOMPS,
     int     THETA_PER_THREAD,
     cub::BlockReduceAlgorithm ALGORITHM>
-__global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double const* __restrict__ P_rtm, double const* __restrict__ dP_rtm, double *asin_theta_1d_rtm, const Geometry_c constants) {
+__global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp_rlm, double *radius_1d_rlm_r, int *mdx_p_rlm_rtm, int *mdx_n_rlm_rtm, double *a_r_1d_rlm_r, double *g_colat_rtm, double *P_rtm, double *dP_rtm, double *asin_theta_1d_rtm, const Geometry_c constants) {
   //dim3 grid(constants.nidx_rlm[1],constants.nidx_rtm[0],1); 
   //dim3 block(nTheta,1,1);
 
@@ -209,10 +209,12 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
   
   __shared__ union
   {
-    typename BlockLoadT::TempStorage load;
+    typename BlockLoadT::TempStorage loadT;
+    typename BlockLoadP::TempStorage loadP;
     typename BlockReduceT::TempStorage reduce;
     //typename BlockReduceT::TempStorage store;
   } temp_storage;
+
 
   /*
   ** Arrays that will contain the values of the vectors that have been transformed into Fourier space. In other words, the input vectors.
@@ -237,9 +239,10 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
   */
 
   int idx = blockIdx.x*constants.nidx_rtm[1];
-  BlockLoadP(temp_storage.load).Load(&P_rtm[idx], P_rtm_local);
+  //Original:
+  BlockLoadP(temp_storage.loadP).Load(&P_rtm[idx], P_rtm_local);
   __syncthreads();
-  BlockLoadP(temp_storage.load).Load(&dP_rtm[idx], dP_rtm_local);
+  BlockLoadP(temp_storage.loadP).Load(&dP_rtm[idx], dP_rtm_local);
   __syncthreads();
 
  //------------------------------
@@ -262,11 +265,11 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
 
     idx = constants.ncomp *
           ((mdx_p_rlm_rtm[blockIdx.x] - 1) * constants.istep_rtm[2] + k_rlm * constants.nidx_rtm[0]);
-    BlockLoadT(temp_storage.load).Load(&vr_rtm[idx], positive_coefficients);
+    BlockLoadT(temp_storage.loadT).Load(&vr_rtm[idx], positive_coefficients);
     __syncthreads();
     idx = constants.ncomp *
           ((mdx_n_rlm_rtm[blockIdx.x] - 1) * constants.istep_rtm[2] + k_rlm * constants.nidx_rtm[0]);
-    BlockLoadT(temp_storage.load).Load(&vr_rtm[idx], negative_coefficients);
+    BlockLoadT(temp_storage.loadT).Load(&vr_rtm[idx], negative_coefficients);
     __syncthreads();
 
     r_1d_rlm_r = radius_1d_rlm_r[k_rlm];
@@ -301,7 +304,7 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
       sp_rlm_tmp[t*3]=0;
       sp_rlm_tmp[t*3 + 1]=0;
       sp_rlm_tmp[t*3 + 2]=0;
-    }
+    } 
   }
 }
 #endif
@@ -1210,34 +1213,6 @@ void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
   //std::assert(itemsPerThread*blockSize == constants.nidx_rtm[1]);
   //std::assert(minGridSize <= constants.nidx_rlm[1]);
 #ifdef CUB
-  static int nShells = constants.nidx_rtm[0];
-
-  constants.ncomp = *ncomp;
-  constants.nscalar= *nscalar;
-  constants.nvector = *nvector;
-
-/*#ifdef CUDA_TIMINGS
-  static Timer transF_v_cub("fwd vector algorithm CUB");
-  cudaPerformance.registerTimer(&transF_v_cub);
-  transF_v_cub.startTimer();
-#endif*/
-
-//cub::BlockReduceAlgorithm BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY;
-/*  dim3 grid(constants.nidx_rlm[1],nShells,1);
-  transF_vec_cub< 384, 4, 13, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
-            <<<grid, 384>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
-                        deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
-                        deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, 
-                        constants);
-
-  transF_vec_reduction< 32, 3,
-                  cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
-                      double>
-            <<<grid, 32>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
-                        deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
-                        deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, 
-                        constants);
-*/
 
 #ifndef CUB_THREADS_PER_BLOCK
 #define CUB_THREADS_PER_BLOCK 1
@@ -1254,14 +1229,42 @@ void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
 #ifndef CUB_THETA_PER_THREAD
 #define CUB_THETA_PER_THREAD 1
 #endif
+  static int nShells = constants.nidx_rtm[0];
 
-/*  dim3 grid(constants.nidx_rlm[1],constants.nidx_rlm[0],1); 
+  constants.ncomp = *ncomp;
+  constants.nscalar= *nscalar;
+  constants.nvector = *nvector;
+
+/*#ifdef CUDA_TIMINGS
+  static Timer transF_v_cub("fwd vector algorithm CUB");
+  cudaPerformance.registerTimer(&transF_v_cub);
+  transF_v_cub.startTimer();
+#endif*/
+
+  dim3 grid(constants.nidx_rlm[1],constants.nidx_rlm[0],1); 
+//cub::BlockReduceAlgorithm BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY;
+ /* transF_vec_cub< CUB_THREADS_PER_BLOCK*CUB_THETA_PER_THREAD, CUB_NVECTOR, CUB_NCOMPS, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
+            <<<grid, CUB_THREADS_PER_BLOCK*CUB_THETA_PER_THREAD>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
+                        deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
+                        deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm, 
+                        constants);*/
+
+/*  transF_vec_reduction< 32, 3,
+                  cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY,
+                      double>
+            <<<grid, 32>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r, 
+                        deviceInput.weight_rtm, deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r, 
+                        deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.g_sph_rlm_7, deviceInput.asin_theta_1d_rtm, 
+                        constants);
+*/
+
+    //transF_vec_cub2< 6, 4, 13, 1, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
     transF_vec_cub2< CUB_THREADS_PER_BLOCK, CUB_NVECTOR, CUB_NCOMPS, CUB_THETA_PER_THREAD, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
             <<<grid, CUB_THREADS_PER_BLOCK>>> (deviceInput.idx_gl_1d_rlm_j, deviceInput.vr_rtm, deviceInput.sp_rlm, deviceInput.radius_1d_rlm_r,
                         deviceInput.mdx_p_rlm_rtm, deviceInput.mdx_n_rlm_rtm, deviceInput.a_r_1d_rlm_r,
                         deviceInput.g_colat_rtm, deviceInput.p_rtm, deviceInput.dP_rtm, deviceInput.asin_theta_1d_rtm,
                         constants);
-*/
+
 
   std::cout << "CUB_THREADS_PER_BLOCK=" << CUB_THREADS_PER_BLOCK << " CUB_NVECTOR=" << CUB_NVECTOR << " CUB_NCOMPS=" << CUB_NCOMPS << " CUB_THETA_PER_THREAD=" << CUB_THETA_PER_THREAD << std::endl;
 

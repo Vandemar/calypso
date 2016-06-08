@@ -37,7 +37,7 @@ deviceBUFFERS fwdTransBuf;
 
 // **** lstack_rlm resides in global memory as well as constant memory
 // ** Pick one or the other
-__constant__ int lstack_rlm_cmem[1000];
+//__constant__ int lstack_rlm_cmem[1000];
 
 //CUDA Unbound - part of device reduce example
 //bool g_verbose = false; // Whether to display input/output to console
