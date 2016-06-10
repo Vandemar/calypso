@@ -1270,7 +1270,7 @@ void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
                         constants);
 
 
-  std::cout << "CUB_THREADS_PER_BLOCK=" << CUB_THREADS_PER_BLOCK << " CUB_NVECTOR=" << CUB_NVECTOR << " CUB_NCOMPS=" << CUB_NCOMPS << " CUB_THETA_PER_THREAD=" << CUB_THETA_PER_THREAD << std::endl;
+//  std::cout << "CUB_THREADS_PER_BLOCK=" << CUB_THREADS_PER_BLOCK << " CUB_NVECTOR=" << CUB_NVECTOR << " CUB_NCOMPS=" << CUB_NCOMPS << " CUB_THETA_PER_THREAD=" << CUB_THETA_PER_THREAD << std::endl;
 
 /*#ifdef CUDA_TIMINGS
   cudaDevSync();

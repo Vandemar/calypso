@@ -67,6 +67,7 @@ extern "C" {
 #endif
 #ifdef CUB
   void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar);
+  void legendre_b_trans_cub_(int *ncomp, int *nvector, int *nscalar);
 #endif
 }
 

@@ -420,6 +420,11 @@
         call leg_backward_trans_cuda_and_org(ncomp, nvector, nscalar,   &
      &      n_WR, n_WS, WR, WS)
 #endif
+#ifdef CUB
+      else if(id_legendre_transfer .eq. iflag_leg_cub) then 
+        call leg_backward_trans_cuda(ncomp, nvector, nscalar,   &
+     &      n_WR, n_WS, WR, WS)
+#endif
       else
         call leg_backward_trans_org(ncomp, nvector, nscalar,            &
      &      n_WR, n_WS, WR, WS)
