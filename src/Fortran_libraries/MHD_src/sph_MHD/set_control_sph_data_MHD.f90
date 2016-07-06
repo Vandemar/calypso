@@ -92,6 +92,8 @@
 !      
       if(i_sph_transform_mode .gt. 0) then
         call set_legendre_trans_mode_ctl(Legendre_trans_loop_ctl)
+      else if(i_sph_fwd_transform_mode .gt. 0 .and. &
+     &        i_sph_bwd_transform_mode .gt. 0) then
         call set_legendre_fwd_trans_mode_ctl(Legendre_fwd_trans_loop_ctl)
         call set_legendre_bwd_trans_mode_ctl(Legendre_bwd_trans_loop_ctl)
       end if
