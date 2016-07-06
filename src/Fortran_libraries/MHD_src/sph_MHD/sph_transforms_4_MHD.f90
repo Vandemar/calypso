@@ -128,7 +128,9 @@
 !     &           nscalar_sph_trans)
 !#endif
 
-      if(id_legendre_transfer .eq. iflag_leg_undefined) then
+      if((id_legendre_transfer .eq. iflag_leg_undefined) .or.     &
+     &    (id_fwd_legendre_transfer .eq. iflag_leg_undefined .and. &
+     &     id_bwd_legendre_transfer .eq. iflag_leg_undefined)) then
         if (iflag_debug.eq.1) write(*,*) 'select_legendre_transform'
         call select_legendre_transform
       end if
@@ -147,44 +149,57 @@
 #endif
 !
       if(my_rank .ne. 0) return
-        if     (id_legendre_transfer .eq. iflag_leg_orginal_loop) then
-          write(tmpchara,'(a)') trim(leg_orginal_loop)
-        else if(id_legendre_transfer .eq. iflag_leg_blocked) then
-          write(tmpchara,'(a)') trim(leg_blocked_loop)
-        else if(id_legendre_transfer .eq. iflag_leg_krloop_inner) then
-          write(tmpchara,'(a)') trim(leg_krloop_inner)
-        else if(id_legendre_transfer .eq. iflag_leg_krloop_outer) then
-          write(tmpchara,'(a)') trim(leg_krloop_outer)
-        else if(id_legendre_transfer .eq. iflag_leg_symmetry) then
-          write(tmpchara,'(a)') trim(leg_sym_org_loop)
-        else if(id_legendre_transfer .eq. iflag_leg_sym_spin_loop) then
-          write(tmpchara,'(a)') trim(leg_sym_spin_loop)
-        else if(id_legendre_transfer .eq. iflag_leg_matmul) then
-          write(tmpchara,'(a)') trim(leg_matmul)
-        else if(id_legendre_transfer .eq. iflag_leg_dgemm) then
-          write(tmpchara,'(a)') trim(leg_dgemm)
-        else if(id_legendre_transfer .eq. iflag_leg_matprod) then
-          write(tmpchara,'(a)') trim(leg_matprod)
-        else if(id_legendre_transfer .eq. iflag_leg_sym_matmul) then
-          write(tmpchara,'(a)') trim(leg_sym_matmul)
-        else if(id_legendre_transfer .eq. iflag_leg_sym_dgemm) then
-          write(tmpchara,'(a)') trim(leg_sym_dgemm)
-        else if(id_legendre_transfer .eq. iflag_leg_sym_matprod) then
-          write(tmpchara,'(a)') trim(leg_sym_matprod)
-        else if(id_legendre_transfer .eq. iflag_leg_test_loop) then
-          write(tmpchara,'(a)') trim(leg_test_loop)
+        if (id_legendre_transfer .ne. iflag_leg_undefined) then 
+          if     (id_legendre_transfer .eq. iflag_leg_orginal_loop) then
+            write(tmpchara,'(a)') trim(leg_orginal_loop)
+          else if(id_legendre_transfer .eq. iflag_leg_blocked) then
+            write(tmpchara,'(a)') trim(leg_blocked_loop)
+          else if(id_legendre_transfer .eq. iflag_leg_krloop_inner) then
+            write(tmpchara,'(a)') trim(leg_krloop_inner)
+          else if(id_legendre_transfer .eq. iflag_leg_krloop_outer) then
+            write(tmpchara,'(a)') trim(leg_krloop_outer)
+          else if(id_legendre_transfer .eq. iflag_leg_symmetry) then
+            write(tmpchara,'(a)') trim(leg_sym_org_loop)
+          else if(id_legendre_transfer .eq. iflag_leg_sym_spin_loop) then
+            write(tmpchara,'(a)') trim(leg_sym_spin_loop)
+          else if(id_legendre_transfer .eq. iflag_leg_matmul) then
+            write(tmpchara,'(a)') trim(leg_matmul)
+          else if(id_legendre_transfer .eq. iflag_leg_dgemm) then
+            write(tmpchara,'(a)') trim(leg_dgemm)
+          else if(id_legendre_transfer .eq. iflag_leg_matprod) then
+            write(tmpchara,'(a)') trim(leg_matprod)
+          else if(id_legendre_transfer .eq. iflag_leg_sym_matmul) then
+            write(tmpchara,'(a)') trim(leg_sym_matmul)
+          else if(id_legendre_transfer .eq. iflag_leg_sym_dgemm) then
+            write(tmpchara,'(a)') trim(leg_sym_dgemm)
+          else if(id_legendre_transfer .eq. iflag_leg_sym_matprod) then
+            write(tmpchara,'(a)') trim(leg_sym_matprod)
+          else if(id_legendre_transfer .eq. iflag_leg_test_loop) then
+            write(tmpchara,'(a)') trim(leg_test_loop)
 #ifdef CUDA
-        else if(id_legendre_transfer .eq. iflag_leg_cuda) then
-          write(tmpchara,'(a)') trim(leg_cuda)
-        else if(id_legendre_transfer .eq. iflag_leg_cuda_and_org) then
-          write(tmpchara,'(a)') trim(leg_cuda_and_org)
+          else if(id_legendre_transfer .eq. iflag_leg_cuda) then
+            write(tmpchara,'(a)') trim(leg_cuda)
+          else if(id_legendre_transfer .eq. iflag_leg_cuda_and_org) then
+            write(tmpchara,'(a)') trim(leg_cuda_and_org)
 #endif
-        end if
-        call change_2_upper_case(tmpchara)
+          end if
 !
-        write(*,'(a,i4)', advance='no')                                 &
-     &         'Selected id_legendre_transfer: ', id_legendre_transfer
-        write(*,'(a,a,a)') ' (', trim(tmpchara), ') '
+          call change_2_upper_case(tmpchara)
+!
+          write(*,'(a,i4)', advance='no')                                 &
+       &         'Selected id_legendre_transfer: ', id_legendre_transfer
+          write(*,'(a,a,a)') ' (', trim(tmpchara), ') '
+        else if(id_fwd_legendre_transfer .ne. iflag_leg_undefined    &
+      &    .and. id_bwd_legendre_transfer .ne. iflag_leg_undefined) then
+          write(*,'(a,i4)', advance='no')                                 &
+       & 'Selected id_fwd_legendre_transfer: ', id_fwd_legendre_transfer
+          write(*,'(a,a,a)') ' (', trim(tmpchara), ') '
+          write(*,'(a,i4)', advance='no')                                 &
+       & 'Selected id_bwd_legendre_transfer: ', id_bwd_legendre_transfer
+          write(*,'(a,a,a)') ' (', trim(tmpchara), ') '
+        else
+          return
+        end if
 !
       end subroutine init_sph_transform_MHD
 !

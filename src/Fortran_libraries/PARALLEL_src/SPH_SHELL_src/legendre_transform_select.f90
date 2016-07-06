@@ -192,9 +192,14 @@
 !@n     with testing loop
       integer(kind = kint), parameter :: iflag_leg_test_loop =   99
 !
-!>      Integer flag for Legendre transform
+!>      Integer flag for Legendre transform, Legendre bwd and fwd
+!       transform
       integer(kind = kint)                                              &
      &              :: id_legendre_transfer = iflag_leg_undefined
+      integer(kind = kint)                                              &
+     &              :: id_fwd_legendre_transfer = iflag_leg_undefined
+      integer(kind = kint)                                              &
+     &              :: id_bwd_legendre_transfer = iflag_leg_undefined
 !
 !>      vector length for legendre transform
       integer(kind = kint) :: nvector_legendre = 0
@@ -260,6 +265,115 @@
 !
 ! -----------------------------------------------------------------------
 !
+      subroutine set_legendre_fwd_trans_mode_ctl(tranx_loop_ctl)
+!
+      use skip_comment_f
+!
+      character(len = kchara), intent(in) :: tranx_loop_ctl
+!
+!
+      if(     cmp_no_case(tranx_loop_ctl, leg_test_loop)) then
+        id_fwd_legendre_transfer = iflag_leg_test_loop
+      else if(cmp_no_case(tranx_loop_ctl, leg_krloop_inner)) then
+        id_fwd_legendre_transfer = iflag_leg_krloop_inner
+      else if(cmp_no_case(tranx_loop_ctl, leg_krloop_outer)) then
+        id_fwd_legendre_transfer = iflag_leg_krloop_outer
+      else if(cmp_no_case(tranx_loop_ctl, leg_sym_org_loop)) then
+        id_fwd_legendre_transfer = iflag_leg_symmetry
+      else if(cmp_no_case(tranx_loop_ctl, leg_sym_spin_loop)) then
+        id_fwd_legendre_transfer = iflag_leg_sym_spin_loop
+      else if(cmp_no_case(tranx_loop_ctl, leg_matmul)) then
+        id_fwd_legendre_transfer = iflag_leg_matmul
+      else if(cmp_no_case(tranx_loop_ctl, leg_dgemm)) then
+        id_fwd_legendre_transfer = iflag_leg_dgemm
+      else if(cmp_no_case(tranx_loop_ctl, leg_matprod)) then
+        id_fwd_legendre_transfer = iflag_leg_matprod
+      else if(cmp_no_case(tranx_loop_ctl, leg_sym_matmul)) then
+        id_fwd_legendre_transfer = iflag_leg_sym_matmul
+      else if(cmp_no_case(tranx_loop_ctl, leg_sym_dgemm)) then
+        id_fwd_legendre_transfer = iflag_leg_sym_dgemm
+      else if(cmp_no_case(tranx_loop_ctl, leg_sym_matprod)) then
+        id_fwd_legendre_transfer = iflag_leg_sym_matprod
+      else if(cmp_no_case(tranx_loop_ctl, leg_blocked_loop)) then
+        id_fwd_legendre_transfer = iflag_leg_blocked
+      else if(cmp_no_case(tranx_loop_ctl, leg_orginal_loop)) then
+        id_fwd_legendre_transfer = iflag_leg_orginal_loop
+#ifdef CUDA
+      else if(cmp_no_case(tranx_loop_ctl, leg_cuda)) then
+        id_fwd_legendre_transfer = iflag_leg_cuda
+      else if(cmp_no_case(tranx_loop_ctl, leg_cuda_and_org)) then
+        id_fwd_legendre_transfer = iflag_leg_cuda_and_org
+#ifdef CUB
+      else if(cmp_no_case(tranx_loop_ctl, leg_cub)) then
+        id_fwd_legendre_transfer = iflag_leg_cub
+#endif
+#ifdef CUBLAS
+      else if(cmp_no_case(tranx_loop_ctl, leg_cublas)) then
+        id_fwd_legendre_transfer = iflag_leg_cublas
+#endif
+#endif
+      else
+        id_fwd_legendre_transfer = iflag_leg_orginal_loop
+      end if
+!
+      end subroutine set_legendre_fwd_trans_mode_ctl
+!
+! -----------------------------------------------------------------------
+!
+      subroutine set_legendre_bwd_trans_mode_ctl(tranx_loop_ctl)
+!
+      use skip_comment_f
+!
+      character(len = kchara), intent(in) :: tranx_loop_ctl
+!
+!
+      if(     cmp_no_case(tranx_loop_ctl, leg_test_loop)) then
+        id_bwd_legendre_transfer = iflag_leg_test_loop
+      else if(cmp_no_case(tranx_loop_ctl, leg_krloop_inner)) then
+        id_bwd_legendre_transfer = iflag_leg_krloop_inner
+      else if(cmp_no_case(tranx_loop_ctl, leg_krloop_outer)) then
+        id_bwd_legendre_transfer = iflag_leg_krloop_outer
+      else if(cmp_no_case(tranx_loop_ctl, leg_sym_org_loop)) then
+        id_bwd_legendre_transfer = iflag_leg_symmetry
+      else if(cmp_no_case(tranx_loop_ctl, leg_sym_spin_loop)) then
+        id_bwd_legendre_transfer = iflag_leg_sym_spin_loop
+      else if(cmp_no_case(tranx_loop_ctl, leg_matmul)) then
+        id_bwd_legendre_transfer = iflag_leg_matmul
+      else if(cmp_no_case(tranx_loop_ctl, leg_dgemm)) then
+        id_bwd_legendre_transfer = iflag_leg_dgemm
+      else if(cmp_no_case(tranx_loop_ctl, leg_matprod)) then
+        id_bwd_legendre_transfer = iflag_leg_matprod
+      else if(cmp_no_case(tranx_loop_ctl, leg_sym_matmul)) then
+        id_bwd_legendre_transfer = iflag_leg_sym_matmul
+      else if(cmp_no_case(tranx_loop_ctl, leg_sym_dgemm)) then
+        id_bwd_legendre_transfer = iflag_leg_sym_dgemm
+      else if(cmp_no_case(tranx_loop_ctl, leg_sym_matprod)) then
+        id_bwd_legendre_transfer = iflag_leg_sym_matprod
+      else if(cmp_no_case(tranx_loop_ctl, leg_blocked_loop)) then
+        id_bwd_legendre_transfer = iflag_leg_blocked
+      else if(cmp_no_case(tranx_loop_ctl, leg_orginal_loop)) then
+        id_bwd_legendre_transfer = iflag_leg_orginal_loop
+#ifdef CUDA
+      else if(cmp_no_case(tranx_loop_ctl, leg_cuda)) then
+        id_bwd_legendre_transfer = iflag_leg_cuda
+      else if(cmp_no_case(tranx_loop_ctl, leg_cuda_and_org)) then
+        id_bwd_legendre_transfer = iflag_leg_cuda_and_org
+#ifdef CUB
+      else if(cmp_no_case(tranx_loop_ctl, leg_cub)) then
+        id_bwd_legendre_transfer = iflag_leg_cub
+#endif
+#ifdef CUBLAS
+      else if(cmp_no_case(tranx_loop_ctl, leg_cublas)) then
+        id_bwd_legendre_transfer = iflag_leg_cublas
+#endif
+#endif
+      else
+        id_bwd_legendre_transfer = iflag_leg_orginal_loop
+      end if
+!
+      end subroutine set_legendre_bwd_trans_mode_ctl
+!
+! -----------------------------------------------------------------------
       subroutine sel_init_legendre_trans(ncomp, nvector, nscalar)
 !
       use m_legendre_work_sym_matmul
@@ -291,6 +405,8 @@
         call alloc_leg_scl_blocked
       else if(id_legendre_transfer .eq. iflag_leg_test_loop) then
         call alloc_leg_vec_test(nvector, nscalar)
+! ToDo: repetitive logic. Design a more modular setup to differentialre
+! between fwd and bwd transforms.
 #ifdef CUDA
       else if(id_legendre_transfer .eq. iflag_leg_cuda) then
 ! Host data
@@ -413,15 +529,18 @@
         call leg_backward_trans_blocked(ncomp, nvector, nscalar,        &
      &      n_WR, n_WS, WR, WS)
 #ifdef CUDA
-      else if(id_legendre_transfer .eq. iflag_leg_cuda) then
+      else if((id_legendre_transfer .eq. iflag_leg_cuda) .or.  &
+          &       (id_bwd_legendre_transfer .eq. iflag_leg_cuda)) then
         call leg_backward_trans_cuda(ncomp, nvector, nscalar,        &
      &      n_WR, n_WS, WR, WS)
-      else if(id_legendre_transfer .eq. iflag_leg_cuda_and_org) then 
+      else if(id_legendre_transfer .eq. iflag_leg_cuda_and_org .or. &
+     &     (id_bwd_legendre_transfer .eq. iflag_leg_cuda_and_org)) then 
         call leg_backward_trans_cuda_and_org(ncomp, nvector, nscalar,   &
      &      n_WR, n_WS, WR, WS)
 #endif
 #ifdef CUB
-      else if(id_legendre_transfer .eq. iflag_leg_cub) then 
+      else if((id_legendre_transfer .eq. iflag_leg_cub) .or. & 
+     &     (id_bwd_legendre_transfer .eq. iflag_leg_cub)) then 
         call leg_backward_trans_cuda(ncomp, nvector, nscalar,   &
      &      n_WR, n_WS, WR, WS)
 #endif
@@ -484,20 +603,24 @@
         call leg_forwawd_trans_blocked(ncomp, nvector, nscalar,         &
      &      n_WR, n_WS, WR, WS)
 #ifdef CUDA
-      else if(id_legendre_transfer .eq. iflag_leg_cuda) then           
+      else if((id_legendre_transfer .eq. iflag_leg_cuda)  .or. &
+          &       (id_fwd_legendre_transfer .eq. iflag_leg_cuda)) then
         call leg_forward_trans_cuda(ncomp, nvector, nscalar,        &
      &      n_WR, n_WS, WR, WS)
-      else if(id_legendre_transfer .eq. iflag_leg_cuda_and_org) then 
+      else if((id_legendre_transfer .eq. iflag_leg_cuda_and_org) .or.  &
+     &     (id_fwd_legendre_transfer .eq. iflag_leg_cuda_and_org)) then 
         call leg_forward_trans_cuda_and_org(ncomp, nvector, nscalar,    &
      &      n_WR, n_WS, WR, WS)
 #endif
 #ifdef CUB
-      else if(id_legendre_transfer .eq. iflag_leg_cub) then           
+      else if((id_legendre_transfer .eq. iflag_leg_cub)  .or. &
+     &     (id_fwd_legendre_transfer .eq. iflag_leg_cub)) then 
         call leg_forward_trans_cub(ncomp, nvector, nscalar,        &
      &      n_WR, n_WS, WR, WS)
 #endif
 #ifdef CUBLAS
-      else if(id_legendre_transfer .eq. iflag_leg_cublas) then
+      else if((id_legendre_transfer .eq. iflag_leg_cublas) .or. &
+     &    (id_fwd_legendre_transfer .eq. iflag_leg_cublas)) then
         call leg_forward_trans_cublas(ncomp, nvector, nscalar,        &
      &      n_WR, n_WS, WR, WS)
 #endif

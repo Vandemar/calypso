@@ -81,6 +81,8 @@
 !!      precond_4_crank_ctl     SSOR   
 !!
 !!      Legendre_trans_loop_ctl   'inner_radial_loop'
+!!      Legendre_fwd_trans_loop_ctl 'CUB'
+!!      Legendre_bwd_trans_loop_ctl 'CUDA
 !!      FFT_library_ctl           'FFTW'
 !!
 !!      Legendre_vector_length_ctl    2
@@ -127,6 +129,8 @@
       character (len=kchara)   :: precond_4_crank_ctl
 ! 
       character(len = kchara) :: Legendre_trans_loop_ctl
+      character(len = kchara) :: Legendre_fwd_trans_loop_ctl
+      character(len = kchara) :: Legendre_bwd_trans_loop_ctl
       character(len = kchara) :: FFT_library_ctl
       character(len = kchara) :: import_mode_ctl
       character(len = kchara) :: SR_routine_ctl
@@ -192,6 +196,10 @@
       character(len=kchara), parameter                                  &
      &      :: hd_sph_transform_mode =  'Legendre_trans_loop_ctl'
       character(len=kchara), parameter                                  &
+     &     :: hd_sph_fwd_transform_mode =  'Legendre_fwd_trans_loop_ctl'
+      character(len=kchara), parameter                                  &
+     &     :: hd_sph_bwd_transform_mode =  'Legendre_bwd_trans_loop_ctl'
+      character(len=kchara), parameter                                  &
      &      :: hd_FFT_package =  'FFT_library_ctl'
       character(len=kchara), parameter                                  &
      &      :: hd_import_mode =  'import_table_mode_ctl'
@@ -221,6 +229,8 @@
       integer (kind=kint) :: i_method_4_velo =      0
       integer (kind=kint) :: i_precond_4_crank =    0
       integer (kind=kint) :: i_sph_transform_mode = 0
+      integer (kind=kint) :: i_sph_fwd_transform_mode = 0
+      integer (kind=kint) :: i_sph_bwd_transform_mode = 0
       integer (kind=kint) :: i_FFT_package =        0
       integer (kind=kint) :: i_import_mode =        0
       integer (kind=kint) :: i_SR_routine =         0
@@ -236,6 +246,7 @@
       private :: hd_coef_imp_b, hd_coef_imp_c, hd_eps_crank
       private :: hd_method_4_velo, hd_precond_4_crank
       private :: hd_sph_transform_mode, hd_legendre_vect_len
+      private :: hd_sph_fwd_transform_mode, hd_sph_bwd_transform_mode
       private :: hd_FFT_package, hd_import_mode, hd_SR_routine
 !
 !   --------------------------------------------------------------------
@@ -291,6 +302,10 @@
      &        i_precond_4_crank, precond_4_crank_ctl)
         call read_character_ctl_item(hd_sph_transform_mode,             &
      &          i_sph_transform_mode, Legendre_trans_loop_ctl)
+        call read_character_ctl_item(hd_sph_fwd_transform_mode,         &
+     &          i_sph_fwd_transform_mode, Legendre_fwd_trans_loop_ctl)
+        call read_character_ctl_item(hd_sph_bwd_transform_mode,         &
+     &          i_sph_bwd_transform_mode, Legendre_bwd_trans_loop_ctl)
         call read_character_ctl_item(hd_FFT_package,                    &
      &          i_FFT_package, FFT_library_ctl)
         call read_character_ctl_item(hd_import_mode,                    &
