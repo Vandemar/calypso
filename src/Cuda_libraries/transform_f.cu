@@ -205,14 +205,14 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
   typedef cub::BlockLoad<double*, THREADS_PER_BLOCK, NCOMPS*THETA_PER_THREAD, cub::BLOCK_LOAD_VECTORIZE> BlockLoadT;
   typedef cub::BlockLoad<double*, THREADS_PER_BLOCK, THETA_PER_THREAD, cub::BLOCK_LOAD_VECTORIZE> BlockLoadP;
   typedef cub::BlockReduce<double, THREADS_PER_BLOCK, ALGORITHM> BlockReduceT;
-//  typedef cub::BlockStore<T, THREADS_PER_BLOCK, ITEMS_PER_THREAD, BLOCK_LOAD_DIRECT> BlockStoreT; 
+  typedef cub::BlockStore<double*, THREADS_PER_BLOCK, NVECTORS*3, cub::BLOCK_STORE_VECTORIZE> BlockStore; 
   
   __shared__ union
   {
     typename BlockLoadT::TempStorage loadT;
     typename BlockLoadP::TempStorage loadP;
     typename BlockReduceT::TempStorage reduce;
-    //typename BlockReduceT::TempStorage store;
+    typename BlockStore::TempStorage store;
   } temp_storage;
 
 
@@ -294,6 +294,9 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
 
     idx_sp = constants.ncomp * ( blockIdx.x*constants.istep_rlm[1] + k_rlm*constants.istep_rlm[0]);
 
+    BlockStore(temp_storage.store).Store(&sp_rlm[idx_sp], sp_rlm_tmp, NVECTORS*3);
+
+    /*
     if(threadIdx.x == 0) {
       for(int t=0; t<NVECTORS; t++) {
         idx_sp += 3;
@@ -301,7 +304,7 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
         sp_rlm[idx_sp-2] += sp_rlm_tmp[(t+1)*3-2];
         sp_rlm[idx_sp-1] += sp_rlm_tmp[(t+1)*3-1];
       }
-    }
+    }*/
 
     for(int t=0; t<NVECTORS; t++) {
       sp_rlm_tmp[t*3]=0;
