@@ -128,7 +128,7 @@
 !     &           nscalar_sph_trans)
 !#endif
 
-      if((id_legendre_transfer .eq. iflag_leg_undefined) .or.     &
+      if((id_legendre_transfer .eq. iflag_leg_undefined) .and.     &
      &    (id_fwd_legendre_transfer .eq. iflag_leg_undefined .and. &
      &     id_bwd_legendre_transfer .eq. iflag_leg_undefined)) then
         if (iflag_debug.eq.1) write(*,*) 'select_legendre_transform'

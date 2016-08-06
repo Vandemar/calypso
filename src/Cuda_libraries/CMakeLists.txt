@@ -43,17 +43,17 @@ ENDIF(CUB)
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE} -maxrregcount 44)
 #cuda_add_library( cudaLib ${CUDA_SRC_FILES} OPTIONS ${GENCODE} -Xptxas -dlcm=cg)
 IF(BUILD_SHARED_LIBS)
-  cuda_add_library( cudaLib ${CUDA_SRC_FILES} SHARED OPTIONS ${GENCODE} -Xcompiler -fPIC)
+  cuda_add_library( cudaLib ${CUDA_SRC_FILES} SHARED OPTIONS "${GENCODE};-Xcompiler;-fPIC")
 ELSE()
-cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE})
+  cuda_add_library( cudaLib ${CUDA_SRC_FILES} STATIC OPTIONS ${GENCODE})
 ENDIF(BUILD_SHARED_LIBS)
 
+#MESSAGE(STATUS "CUDA_LIBRARY_FLAGS set to: ${CUDA_LIBRARY_FLAGS}") 
+
 IF(CMAKE_BUILD_TYPE MATCHES DEBUG)
-  set_target_properties(cudaLib PROPERTIES LINK_FLAGS
-"${CUDA_LIBRARY_FLAGS};-DCUDA_DEBUG")
+  set_target_properties(cudaLib PROPERTIES LINK_FLAGS "${CUDA_LIBRARY_FLAGS};-DCUDA_DEBUG")
 ELSEIF(CMAKE_BUILD_TYPE MATCHES RELEASE)
-  set_target_properties(cudaLib PROPERTIES LINK_FLAGS
-"${CUDA_LIBRARY_FLAGS};-DCUDA_OPTIMIZED")
+  set_target_properties(cudaLib PROPERTIES LINK_FLAGS "${CUDA_LIBRARY_FLAGS};-DCUDA_OPTIMIZED")
 ENDIF()
 
 #add_library( cudaFortran ${FORTRAN_CUDA_INTERFACE} )
