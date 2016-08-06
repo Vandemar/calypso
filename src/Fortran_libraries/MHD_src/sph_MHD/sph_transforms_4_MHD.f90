@@ -191,12 +191,12 @@
           write(*,'(a,a,a)') ' (', trim(tmpchara), ') '
         else if(id_fwd_legendre_transfer .ne. iflag_leg_undefined    &
       &    .and. id_bwd_legendre_transfer .ne. iflag_leg_undefined) then
-          write(*,'(a,i4)', advance='no')                                 &
-       & 'Selected id_fwd_legendre_transfer: ', id_fwd_legendre_transfer
-          write(*,'(a,a,a)') ' (', trim(tmpchara), ') '
-          write(*,'(a,i4)', advance='no')                                 &
-       & 'Selected id_bwd_legendre_transfer: ', id_bwd_legendre_transfer
-          write(*,'(a,a,a)') ' (', trim(tmpchara), ') '
+!          write(*,'(a,i4)', advance='no')                                 &
+!       & 'Selected id_fwd_legendre_transfer: ', id_fwd_legendre_transfer
+!          write(*,'(a,a,a)') ' (', trim(tmpchara), ') '
+!          write(*,'(a,i4)', advance='no')                                 &
+!       & 'Selected id_bwd_legendre_transfer: ', id_bwd_legendre_transfer
+!          write(*,'(a,a,a)') ' (', trim(tmpchara), ') '
         else
           return
         end if

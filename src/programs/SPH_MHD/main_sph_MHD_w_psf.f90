@@ -29,9 +29,7 @@
 #endif
 !
       call initialize_sph_mhd_w_psf
-#ifndef CUDA_DEBUG
       call evolution_sph_mhd_w_psf
-#endif
 !
 #ifdef CUDA
       call calypso_GPU_finalize

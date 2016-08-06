@@ -3,7 +3,50 @@
 #include <sstream>
 
 #include "legendre_poly.h"
+
 //TODO: Use the logger class to write results
+
+void compute_L2_norm_for_bwd_trans_(int *my_rank, double *vr_rtm) {
+  #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
+    double L2_error_vec[3] = {0,0,0};
+    double L2_error_scalar = 0;
+    unsigned int n = 0;
+    int jst, jed, ip_rtm;
+
+    for(int k=1; k<=constants.nidx_rtm[0]; k++) {
+      for(int mp_rlm=1; mp_rlm<=constants.nidx_rtm[2]; mp_rlm++) {
+        jst = h_debug.lstack_rlm[mp_rlm-1] + 1; 
+        jed = h_debug.lstack_rlm[mp_rlm];
+        for(int l_rtm=1; l_rtm <=constants.nidx_rtm[1]; l_rtm++) {
+          for(int nd=1; nd<=constants.nvector; nd++) {
+            ip_rtm = 3*nd + constants.ncomp*((l_rtm-1)*constants.istep_rtm[1] + (k-1)*constants.istep_rtm[0] + (mp_rlm-1)*constants.istep_rtm[2]) - 1;
+            L2_error_vec[0] += pow((h_debug.vr_rtm[ip_rtm] - vr_rtm[ip_rtm]),2);
+            L2_error_vec[1] += pow((h_debug.vr_rtm[ip_rtm-1] - vr_rtm[ip_rtm-1]),2);
+            L2_error_vec[2] += pow((h_debug.vr_rtm[ip_rtm-2] - vr_rtm[ip_rtm-2]),2);
+            n++;
+          }
+          for(int nd=1; nd<=constants.nscalar; nd++) {
+            ip_rtm = nd + 3*constants.nvector + constants.ncomp*((l_rtm-1)*constants.istep_rtm[1] + (k-1)*constants.istep_rtm[0] + (mp_rlm-1)*constants.istep_rtm[2]) - 1;
+            L2_error_scalar += pow((h_debug.vr_rtm[ip_rtm] - vr_rtm[ip_rtm]),2);
+          }
+        }
+      }
+    }
+
+    if (*my_rank == 0)
+      std::cout << "Error norm for muiltple MPI procs is bogus at the moment" << std::endl;
+
+    for (int i=0; i<3; i++)
+      L2_error_vec[i] = sqrt(L2_error_vec[i])/((double) n);
+    L2_error_scalar = sqrt(L2_error_scalar)/((double) n);
+
+   std::cout << "L2 Norm for bwd trans: ";
+   for (int i=0; i<3; i++)
+     std::cout << " " << L2_error_vec[i] << " ";
+   std::cout << std::endl;
+   std::cout << " " << L2_error_scalar << std::endl;
+  #endif
+}
  
 void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *dP_jl) {
 
@@ -52,6 +95,7 @@ void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *d
    field_vec << "\tshell\tmeridian\tmp_rlm\tvector_index\t vr_rtm_cu[0]\t vr_rtm[0] \t vr_rtm_cu[1] \t vr_rtm[1] \t vr_rtm_cu[2] \t vr_rtm[2] \t vr_rtm_n_cu[0] \t vr_rtm_n[0] \t vr_Rtm_n_cu[1] \t vr_rtm_n[1]\n";
    field_slr << "\tshell\tmeridian\tmp_rlm\tscalar\t vr_rtm_cu[0]\t vr_rtm[0] \n";
 
+/*
     for(int k=1; k<=constants.nidx_rtm[0]; k++) {
       for(int mp_rlm=1; mp_rlm<=constants.nidx_rtm[2]; mp_rlm++) {
         jst = h_debug.lstack_rlm[mp_rlm-1] + 1; 
@@ -78,9 +122,11 @@ void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *d
         }
       }
     }
-   
+*/   
    field_vec.close();
    field_slr.close();
+
+   compute_L2_norm_for_bwd_trans_(my_rank, vr_rtm);
   #endif
 }
 
@@ -166,6 +212,42 @@ void check_bwd_trans_cuda_and_org_(int *my_rank, double *vr_rtm_base, double *vr
   #endif
 }
 
+void compute_L2_norm_for_fwd_trans_(int *my_rank, double *sp_rlm) {
+  #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
+    double L2_error_vec[3] = {0,0,0};
+    double L2_error_scalar = 0;
+    int i_rlm, n=0;
+    for(int k=1; k<=constants.nidx_rtm[0]; k++) {
+      for(int j_rlm=1; j_rlm <=constants.nidx_rlm[1]; j_rlm++) {
+        for(int nd=1; nd<=constants.nvector; nd++) {
+          i_rlm = 3*nd + constants.ncomp*((j_rlm-1)*constants.istep_rlm[1] + (k-1)*constants.istep_rlm[0]) - 1;
+          L2_error_vec[0] += pow((h_debug.sp_rlm[i_rlm] - sp_rlm[i_rlm]),2);
+          L2_error_vec[1] += pow((h_debug.sp_rlm[i_rlm-1] - sp_rlm[i_rlm-1]),2);
+          L2_error_vec[2] += pow((h_debug.sp_rlm[i_rlm-2] - sp_rlm[i_rlm-2]),2);
+          n++; 
+        }
+        for(int nd=1; nd<=constants.nscalar; nd++) {
+          i_rlm = nd + 3*constants.nvector + constants.ncomp*((j_rlm-1)*constants.istep_rlm[1] + (k-1)*constants.istep_rlm[0]) - 1;
+          L2_error_scalar += pow((h_debug.sp_rlm[i_rlm] - sp_rlm[i_rlm]),2);
+        }
+      }
+    }
+
+    if (*my_rank == 0)
+      std::cout << "Error norm for muiltple MPI procs is bogus at the moment" << std::endl;
+
+    for (int i=0; i<3; i++)
+      L2_error_vec[i] = sqrt(L2_error_vec[i])/((double) n);
+    L2_error_scalar = sqrt(L2_error_scalar)/((double) n);
+
+   std::cout << "L2 Norm for fwd trans: ";
+   for (int i=0; i<3; i++)
+     std::cout << " " << L2_error_vec[i] << " ";
+   std::cout << std::endl;
+   std::cout << " " << L2_error_scalar << std::endl;
+  #endif
+}
+
 void check_fwd_trans_cuda_(int *my_rank, double *sp_rlm) {
   #if defined(CUDA_DEBUG) || defined(CHECK_SCHMIDT_OTF)
     std::string fName;
@@ -194,7 +276,7 @@ void check_fwd_trans_cuda_(int *my_rank, double *sp_rlm) {
     int i_rlm;
    spec_vec<< "\tshell\tmode\tdegree\torder\tvector_index\t sp_rlm_cu[0]\t sp_rlm[0] \t sp_rlm_cu[1] \t sp_rlm[1] \t sp_rlm_cu[2] \t sp_rlm[2] \n";
    spec_slr<< "\tshell\tmode\tdegree\torder\tvector_index\t sp_rlm_cu[0]\t sp_rlm[0]\n";
-
+/*
     for(int k=1; k<=constants.nidx_rtm[0]; k++) {
       for(int j_rlm=1; j_rlm <=constants.nidx_rlm[1]; j_rlm++) {
         degree = h_debug.idx_gl_1d_rlm_j[ constants.nidx_rlm[1] + (j_rlm-1)];
@@ -215,9 +297,11 @@ void check_fwd_trans_cuda_(int *my_rank, double *sp_rlm) {
         }
       }
     }
-
+*/
    spec_vec.close();
    spec_slr.close();
+
+  compute_L2_norm_for_fwd_trans_(my_rank, sp_rlm);
   #endif
 }
 

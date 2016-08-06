@@ -6,3 +6,4 @@
 IN FILE: 
    SPH_SHELL_src/legendre_transform_select.f90
    function sel_finalize_legendre_trans is called during testing of loops. If a method is specified, this function is not called. If cuda kernel is tested and it isn;t the fastest one, the GPU needs to be cleaned. Implement that scenario. 
+* 8/6/16 With the cuda legendre trans loop type, there is an error in the compuation of the first two components of the bwd transformation.
