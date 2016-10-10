@@ -95,7 +95,7 @@ void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *d
    field_vec << "\tshell\tmeridian\tmp_rlm\tvector_index\t vr_rtm_cu[0]\t vr_rtm[0] \t vr_rtm_cu[1] \t vr_rtm[1] \t vr_rtm_cu[2] \t vr_rtm[2] \t vr_rtm_n_cu[0] \t vr_rtm_n[0] \t vr_Rtm_n_cu[1] \t vr_rtm_n[1]\n";
    field_slr << "\tshell\tmeridian\tmp_rlm\tscalar\t vr_rtm_cu[0]\t vr_rtm[0] \n";
 
-/*
+
     for(int k=1; k<=constants.nidx_rtm[0]; k++) {
       for(int mp_rlm=1; mp_rlm<=constants.nidx_rtm[2]; mp_rlm++) {
         jst = h_debug.lstack_rlm[mp_rlm-1] + 1; 
@@ -122,7 +122,7 @@ void check_bwd_trans_cuda_(int *my_rank, double *vr_rtm, double *P_jl, double *d
         }
       }
     }
-*/   
+   
    field_vec.close();
    field_slr.close();
 

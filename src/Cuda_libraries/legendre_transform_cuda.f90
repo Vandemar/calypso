@@ -220,6 +220,7 @@
       real (kind=kreal), intent(inout):: WS(n_WS)
 !
 !
+#ifdef CUB
       call calypso_rlm_from_recv_N(ncomp, n_WR, WR, sp_rlm_wk(1))
 #if defined(CUDA_DEBUG)
       call clear_bwd_legendre_work(ncomp)
@@ -277,6 +278,7 @@
 #endif
       call finish_send_recv_rj_2_rlm
       call calypso_rtm_to_send_N(ncomp, n_WS, vr_rtm_wk(1), WS(1))
+#endif
 !
       end subroutine leg_backward_trans_cub
 !
