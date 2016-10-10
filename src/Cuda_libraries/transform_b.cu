@@ -111,9 +111,10 @@ void transB_dydp(int mp_rlm_st, int *idx_gl_1d_rlm_j, double *vr_rtm, double con
   unsigned int idx=0, idx_rtm=0;
   double reg2;
   double vr4=0, vr5=0;
-
-  //int mn_rlm = constants.nidx_rtm[2] - blockIdx.y;
-  int mn_rlm = mp_rlm_st + blockIdx.y;
+ 
+  // The following equation is incorrect.
+  // int mn_rlm = mp_rlm_st + blockIdx.y;
+  int mn_rlm = constants.nidx_rtm[2] - (blockIdx.y + mp_rlm_st);
   int jst = lstack_rlm_cmem[blockIdx.y];
   int jed = lstack_rlm_cmem[blockIdx.y+1];
   int order = idx_gl_1d_rlm_j[constants.nidx_rlm[1]*2 + jst]; 
@@ -122,8 +123,7 @@ void transB_dydp(int mp_rlm_st, int *idx_gl_1d_rlm_j, double *vr_rtm, double con
  
   int idxStride = constants.ncomp * constants.istep_rlm[1];
   // mn_rlm
-  //idx_rtm = 3*(threadIdx.x+1) + constants.ncomp * ((blockIdx.x) * constants.istep_rtm[1] + threadIdx.y*constants.istep_rtm[0] + (mn_rlm-1) * constants.istep_rtm[2]); 
-  idx_rtm = 3*(threadIdx.x+1) + constants.ncomp * ((blockIdx.x) * constants.istep_rtm[1] + threadIdx.y*constants.istep_rtm[0] + mn_rlm * constants.istep_rtm[2]); 
+  idx_rtm = 3*(threadIdx.x+1) + constants.ncomp * ((blockIdx.x) * constants.istep_rtm[1] + threadIdx.y*constants.istep_rtm[0] + (mn_rlm-1) * constants.istep_rtm[2]); 
 
   double scalar  = a_r_1d_rlm_r[threadIdx.y] * order * asin;
   
