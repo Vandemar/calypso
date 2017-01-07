@@ -1,7 +1,6 @@
 * Add a CMAKE flag that tests for accuracy.
 * Add a software layer that switches between different implementations of the transforms.
 * Treat large memory requirement runs, based on on available GPU memory.
-* Release build
 _____________________________________________________________________________________
 * Running CMAKE with -DTIME=ON creates a circular dependency
 * The method of including library CUDA UnBound needs to be generalized. 
