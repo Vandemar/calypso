@@ -2,6 +2,8 @@
 * Add a software layer that switches between different implementations of the transforms.
 * Treat large memory requirement runs, based on on available GPU memory.
 * Timing routines for cuda bwd and fwd transform have been varified. The timing routines for all other variations need to be double checked. Note that the number of times a function is called is just as important for timing metrics.
+* Deprecate timer.cu
+* Modularization of c++ code
 _____________________________________________________________________________________
 * Test convergence of the transform by taking a function of r, setting the poloidal to f(r) and diff_radial+poloidal to derivative of f(r) with respect to r and toroidal to arbitrary constant. Followed by a fwd trans and then a bwd trans. Re-examine those values for those specific modes. This will tell you of the methods convergence. A Fortran example is in the "Initial Field"
 IN FILE: 
