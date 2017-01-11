@@ -1,13 +1,9 @@
 * Add a CMAKE flag that tests for accuracy.
 * Add a software layer that switches between different implementations of the transforms.
 * Treat large memory requirement runs, based on on available GPU memory.
+* Timing routines for cuda bwd and fwd transform have been varified. The timing routines for all other variations need to be double checked. Note that the number of times a function is called is just as important for timing metrics.
 _____________________________________________________________________________________
-* Running CMAKE with -DTIME=ON creates a circular dependency
-* The method of including library CUDA UnBound needs to be generalized. 
-  Currently it is set as a absolute path for the cig-projector
-* During the initilization where the legendre transform algorithm is begin chosen, the suite of cuda algorithms needs to be part of that set. Each transform can be tested on physical space set to 0 followed by fwd_tran and then a bwd trans. Or vice Versa.
 * Test convergence of the transform by taking a function of r, setting the poloidal to f(r) and diff_radial+poloidal to derivative of f(r) with respect to r and toroidal to arbitrary constant. Followed by a fwd trans and then a bwd trans. Re-examine those values for those specific modes. This will tell you of the methods convergence. A Fortran example is in the "Initial Field"
 IN FILE: 
    SPH_SHELL_src/legendre_transform_select.f90
    function sel_finalize_legendre_trans is called during testing of loops. If a method is specified, this function is not called. If cuda kernel is tested and it isn;t the fastest one, the GPU needs to be cleaned. Implement that scenario. 
-* 8/6/16 With the cuda legendre trans loop type, there is an error in the compuation of the first two components of the bwd transformation.
