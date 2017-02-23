@@ -202,10 +202,10 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
   // NTHETA = THETA_PER_THREAD * THREADS_PER_BLOCK
   // Note that the ntheta values are the same across all mpi processes. Ie, nidx_rtm[1];
   
-  typedef cub::BlockLoad<double*, THREADS_PER_BLOCK, NCOMPS*THETA_PER_THREAD, cub::BLOCK_LOAD_VECTORIZE> BlockLoadT;
-  typedef cub::BlockLoad<double*, THREADS_PER_BLOCK, THETA_PER_THREAD, cub::BLOCK_LOAD_VECTORIZE> BlockLoadP;
+  typedef cub::BlockLoad<double, THREADS_PER_BLOCK, NCOMPS*THETA_PER_THREAD, cub::BLOCK_LOAD_VECTORIZE> BlockLoadT;
+  typedef cub::BlockLoad<double, THREADS_PER_BLOCK, THETA_PER_THREAD, cub::BLOCK_LOAD_VECTORIZE> BlockLoadP;
   typedef cub::BlockReduce<double, THREADS_PER_BLOCK, ALGORITHM> BlockReduceT;
-  typedef cub::BlockStore<double*, THREADS_PER_BLOCK, NVECTORS*3, cub::BLOCK_STORE_VECTORIZE> BlockStore; 
+  typedef cub::BlockStore<double, THREADS_PER_BLOCK, NVECTORS*3, cub::BLOCK_STORE_VECTORIZE> BlockStore; 
   
   __shared__ union
   {
@@ -296,7 +296,6 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
 
     BlockStore(temp_storage.store).Store(&sp_rlm[idx_sp], sp_rlm_tmp, NVECTORS*3);
 
-    /*
     if(threadIdx.x == 0) {
       for(int t=0; t<NVECTORS; t++) {
         idx_sp += 3;
@@ -304,13 +303,13 @@ __global__ void transF_vec_cub2(int *idx_gl_1d_rlm_j, double *vr_rtm, double *sp
         sp_rlm[idx_sp-2] += sp_rlm_tmp[(t+1)*3-2];
         sp_rlm[idx_sp-1] += sp_rlm_tmp[(t+1)*3-1];
       }
-    }*/
+    }
 
-    for(int t=0; t<NVECTORS; t++) {
+    /*for(int t=0; t<NVECTORS; t++) {
       sp_rlm_tmp[t*3]=0;
       sp_rlm_tmp[t*3 + 1]=0;
       sp_rlm_tmp[t*3 + 2]=0;
-    } 
+    }*/ 
   }
 }
 #endif
@@ -1221,19 +1220,19 @@ void legendre_f_trans_vector_cub_(int *ncomp, int *nvector, int *nscalar) {
 #ifdef CUB
 
 #ifndef CUB_THREADS_PER_BLOCK
-#define CUB_THREADS_PER_BLOCK 1
+#define CUB_THREADS_PER_BLOCK 16
 #endif
 
 #ifndef CUB_NVECTOR
-#define CUB_NVECTOR 1
+#define CUB_NVECTOR 4
 #endif
 
 #ifndef CUB_NCOMPS
-#define CUB_NCOMPS 3
+#define CUB_NCOMPS 13
 #endif
 
 #ifndef CUB_THETA_PER_THREAD
-#define CUB_THETA_PER_THREAD 1
+#define CUB_THETA_PER_THREAD 3
 #endif
   static int nShells = constants.nidx_rtm[0];
 
