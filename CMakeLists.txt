@@ -5,6 +5,8 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 PROJECT(CALYPSO Fortran)
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/src/cmake/Modules/")
 ENABLE_LANGUAGE(Fortran)
+# Enable compilation of c++ based programming language CUDA
+ENABLE_LANGUAGE(CXX)
 
 SET(CMAKE_Fortran_MODULE_DIRECTORY "${CALYPSO_BINARY_DIR}/include")
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CALYPSO_BINARY_DIR}/bin")
@@ -25,6 +27,12 @@ INCLUDE_DIRECTORIES(${MPI_Fortran_INCLUDE_PATH})
 # Look for OpenMP and use it if available
 FIND_PACKAGE(OpenMP_Fortran)
 SET (CMAKE_Fortran_FLAGS ${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS})
+
+# Look for CUDA and use it if available
+FIND_PACKAGE(CUDA)
+IF (CUDA_FOUND)
+    ADD_DEFINITIONS(-DCUBLAS)
+ENDIF(CUDA_FOUND)
 
 # Look for FFTW3 and use it if available
 FIND_PACKAGE(FFTW)
